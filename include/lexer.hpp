@@ -10,15 +10,15 @@ static double NumVal;
 
 // Else, other tokens
 enum Token : int {
-    TOK_EOF = -1,
+    TOK_EOF,
 
     // Function & extern
-    TOK_FN = -2,
-    TOK_EXTERN = -3,
+    TOK_FN,
+    TOK_EXTERN,
 
     // Identifiers (includes reserved tokens) & Numbers
-    TOK_IDENTIFIER = -4,
-    TOK_NUMBER = -5,
+    TOK_IDENTIFIER,
+    TOK_NUMBER,
 
     TOK_OTHER
 };
@@ -26,3 +26,7 @@ enum Token : int {
 // The actual implementation of the lexer is a single function named gettok.
 // ( aka gettok ) - return next token
 Token get_next_token();
+
+#ifdef DEBUG
+void _DEBUG_read_tokens();
+#endif

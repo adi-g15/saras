@@ -1,8 +1,12 @@
 #include "lexer.hpp"
 #include <cctype>
 #include <cstdio>
-#include <iostream>
 #include <string>
+
+#ifdef DEBUG
+#include <iostream>
+#include <tabulate/table.hpp>
+#endif
 
 Token get_next_token() {
     static int LastChar = ' ';  // int, not char, just that negative values make sense then, and getchar also returns int
@@ -14,6 +18,7 @@ Token get_next_token() {
 
     /* [A-Z|a-z] */
     if (isalpha(LastChar)) {
+        DataStr.clear();
         /* [A-Z|a-z][A-Z|a-z|0-9]+ */
         while (isalnum(LastChar)) {
             DataStr += LastChar;
@@ -46,12 +51,10 @@ Token get_next_token() {
             LastChar = getchar();
         }
 
-        // Check if LastChar is EOF
-        if( LastChar != EOF ) {
-            return get_next_token();
-        } else {
-            return TOK_EOF;
-        }
+        // Case if it's EOF or not is handled by next call
+        return get_next_token();
+    } else if ( LastChar == EOF ) {
+        return TOK_EOF;
     }
 
     // NOTE TO CALLER: Only use DataStr[0], in case of TOK_OTHER
@@ -60,3 +63,39 @@ Token get_next_token() {
     LastChar = getchar();   // next call should use a different value of LastChar
     return TOK_OTHER;
 }
+
+#ifdef DEBUG
+void _DEBUG_read_tokens() {
+    Token t = TOK_OTHER;
+
+    tabulate::Table table;
+
+    auto token_name = [&t]() -> const char* {
+        switch (t) {
+            case TOK_EOF:
+                return "EOF";
+            case TOK_FN:
+                return "FN";
+            case TOK_EXTERN:
+                return "EXTERN";
+            case TOK_IDENTIFIER:
+                return "IDENTIFIER";
+            case TOK_NUMBER:
+                return "NUMBER";
+            case TOK_OTHER:
+                return "OTHER";
+            default:
+                return "----";
+        }
+    };
+
+    table.add_row({"Token", "DataStr"});
+    while ( t != TOK_EOF ) {
+        t = get_next_token();
+
+        table.add_row({token_name(), DataStr});
+    }
+
+    std::cout << table << std::endl;
+}
+#endif

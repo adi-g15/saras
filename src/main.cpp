@@ -1,11 +1,11 @@
 /*
     Kaleidoscope√A
-    ${{CPPROJ_PROJECT_DESC}}
 */
 
 #include <iostream>
+#include "lexer.hpp"
 
 int main() {
-    std::cout << "Namaste!";
+    _DEBUG_read_tokens();
 }
 
