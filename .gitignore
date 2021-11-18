@@ -58,3 +58,4 @@ CMakeUserPresets.json
 !.vscode/launch.json
 *.code-workspace
 
+.cache

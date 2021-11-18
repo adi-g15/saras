@@ -4,9 +4,12 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <vector>
 
 static std::string DataStr;
 static double NumVal;
+
+static const std::vector<std::string> LANG_KEYWORDS = {"if", "else", "for", "while", "return"};
 
 // Else, other tokens
 enum Token : int {
@@ -16,8 +19,9 @@ enum Token : int {
     TOK_FN,
     TOK_EXTERN,
 
-    // Identifiers (includes reserved tokens) & Numbers
+    // Identifiers, Keywords & Numbers
     TOK_IDENTIFIER,
+    TOK_KEYWORDS,
     TOK_NUMBER,
 
     TOK_OTHER
