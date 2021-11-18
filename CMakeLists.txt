@@ -7,10 +7,11 @@ project(Kaleidoscope√A
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
+set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 
 file(GLOB SOURCES src/*.cpp)
 # kra - Kaleidoscope Root A
 add_executable(kra ${SOURCES})
 
-target_include_directories(kra PRIVATE include/)
+include_directories(include)
 install(TARGETS kra)
