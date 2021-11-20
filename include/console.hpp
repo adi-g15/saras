@@ -102,6 +102,10 @@ static inline bool operator==(const utf8::_char &uc, char c) {
     return holds_alternative<char>(uc) && (std::get<char>(uc) == c);
 }
 
+static inline bool operator!=(const utf8::_char &uc, char c) {
+    return !(uc == c);
+}
+
 // Overloaded '+=' operator, so that UTF-8 character can be pushed to string
 static void operator+=(std::string &s, const utf8::_char &c) {
     auto visiter = overload{
