@@ -1,5 +1,6 @@
 #include "lexer.hpp"
 #include "tokens.hpp"
+#include "console.hpp"
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
@@ -14,26 +15,25 @@
 using std::holds_alternative;
 
 Token get_next_token() {
-    static int LastChar = ' '; // int, not char, just that negative values make
-                               // sense then, and getchar also returns int
+    static utf8::_char LastChar = char(' ');    // UTF-8 character
     std::string data_str;
 
     /* Ignore all whitespaces (also true for first call to this function) */
-    while (isspace(LastChar)) {
-        LastChar = getchar();
+    while (utf8::isspace(LastChar)) {
+        LastChar = utf8::get_character();
     }
 
     /* [A-Z|a-z] */
-    if (isalpha(LastChar)) {
+    if (utf8::isalpha(LastChar) || utf8::is_not_ascii(LastChar)) {
         /* [A-Z|a-z][A-Z|a-z|0-9]+ */
-        while (isalnum(LastChar)) {
+        while (utf8::isalnum(LastChar) || utf8::is_not_ascii(LastChar)) {
             data_str += LastChar;
-            LastChar = getchar();
+            LastChar = utf8::get_character();
         }
 
-        if (data_str == "chakra") {
+        if (data_str == "fn" || data_str == "प्रकर") {
             return TOK_FN{};
-        } else if (data_str == "extern") {
+        } else if (data_str == "extern" || data_str == "बाहरीप्रकर") {
             return TOK_EXTERN{};
         } else if (std::find(LANG_KEYWORDS.cbegin(), LANG_KEYWORDS.cend(),
                              data_str) != LANG_KEYWORDS.cend()) {
@@ -41,34 +41,35 @@ Token get_next_token() {
         }
 
         return TOK_IDENTIFIER{data_str};
-    } else if (isdigit(LastChar)) {
+    } else if (utf8::isdigit(LastChar)) {
         /* [0-9] */
-        data_str = LastChar;
+        data_str.clear();
+        data_str += LastChar;
 
-        LastChar = getchar();
-        while (isdigit(LastChar) || (LastChar == '.')) {
+        LastChar = utf8::get_character();
+        while (utf8::isdigit(LastChar) || (LastChar == '.')) {
             data_str += LastChar;
-            LastChar = getchar();
+            LastChar = utf8::get_character();
         }
 
         return TOK_NUMBER{std::stod(data_str)};
     } else if (LastChar == '#') { // it is a single-line comment
         // std::getline(std::cin, DataStr);    // read the line
 
-        while (LastChar != EOF && LastChar != '\n' && LastChar != '\r') {
-            LastChar = getchar();
+        while ( !utf8::is_eof(LastChar) && LastChar != '\n' && LastChar != '\r') {
+            LastChar = utf8::get_character();
         }
 
         // Case if it's EOF or not is handled by next call
         return get_next_token();
-    } else if (LastChar == EOF) {
+    } else if (utf8::is_eof(LastChar)) {
         return TOK_EOF{};
     }
 
-    // NOTE TO CALLER: Only use DataStr[0], in case of TOK_OTHER
-    data_str = LastChar;
+    data_str.clear();
+    data_str += LastChar;
 
-    LastChar = getchar(); // next call should use a different value of LastChar
+    LastChar = utf8::get_character(); // next call should use a different value of LastChar
     return TOK_OTHER{data_str};
 }
 
@@ -98,11 +99,11 @@ void _DEBUG_read_tokens() {
                  [](const TOK_NUMBER &t) { return std::to_string(t.val); },
                  [](const TOK_OTHER &t) { return t.data; }};
 
-    auto token_name = std::visit(visiter_tok_to_str, t);
-    auto token_datastr = std::visit(visiter_datastr, t);
     table.add_row({"Token", "  DataStr  "});
-    while (holds_alternative<TOK_EOF>(t)) {
+    while (!holds_alternative<TOK_EOF>(t)) {
         t = get_next_token();
+        auto token_name = std::visit(visiter_tok_to_str, t);
+        auto token_datastr = std::visit(visiter_datastr, t);
 
         table.add_row({token_name, token_datastr});
     }
