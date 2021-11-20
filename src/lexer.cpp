@@ -1,10 +1,9 @@
 #include "lexer.hpp"
 #include "tokens.hpp"
-#include "console.hpp"
+#include "utf8.hpp"
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
-#include <string>
 #include <variant>
 
 #ifdef DEBUG
@@ -15,8 +14,8 @@
 using std::holds_alternative;
 
 Token get_next_token() {
-    static utf8::_char LastChar = char(' ');    // UTF-8 character
-    std::string data_str;
+    static utf8::_char LastChar = char(' '); // UTF-8 character
+    utf8::string data_str;
 
     /* Ignore all whitespaces (also true for first call to this function) */
     while (utf8::isspace(LastChar)) {
@@ -56,7 +55,8 @@ Token get_next_token() {
     } else if (LastChar == '#') { // it is a single-line comment
         // std::getline(std::cin, DataStr);    // read the line
 
-        while ( !utf8::is_eof(LastChar) && LastChar != '\n' && LastChar != '\r') {
+        while (!utf8::is_eof(LastChar) && LastChar != '\n' &&
+               LastChar != '\r') {
             LastChar = utf8::get_character();
         }
 
@@ -69,7 +69,10 @@ Token get_next_token() {
     data_str.clear();
     data_str += LastChar;
 
-    LastChar = utf8::get_character(); // next call should use a different value of LastChar
+    // Now advance lexer pointer, next call should use a different value of
+    // LastChar
+    LastChar = utf8::get_character();
+
     return TOK_OTHER{data_str};
 }
 
@@ -91,9 +94,9 @@ void _DEBUG_read_tokens() {
                  [](const TOK_OTHER &) { return "OTHER"; }};
 
     auto visiter_datastr =
-        overload{[](const TOK_EOF &t) -> std::string { return ""; },
-                 [](const TOK_FN &t) -> std::string { return ""; },
-                 [](const TOK_EXTERN &t) -> std::string { return ""; },
+        overload{[](const TOK_EOF &t) -> utf8::string { return ""; },
+                 [](const TOK_FN &t) -> utf8::string { return ""; },
+                 [](const TOK_EXTERN &t) -> utf8::string { return ""; },
                  [](const TOK_IDENTIFIER &t) { return t.identifier_str; },
                  [](const TOK_KEYWORDS &t) { return t.str; },
                  [](const TOK_NUMBER &t) { return std::to_string(t.val); },

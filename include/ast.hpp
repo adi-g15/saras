@@ -1,8 +1,8 @@
 #pragma once
 
+#include "utf8.hpp"
 #include "tokens.hpp"
 #include <memory>
-#include <string>
 #include <vector>
 
 static Token CurrentToken;
@@ -16,7 +16,7 @@ class ExprAST {
 template <typename T> using Ptr = std::unique_ptr<T>;
 
 // Number
-class NumberAST : ExprAST {
+class NumberAST : public ExprAST {
     double value;
 
   public:
@@ -24,47 +24,47 @@ class NumberAST : ExprAST {
 };
 
 // Variable
-class VariableAST : ExprAST {
-    const std::string var_name;
+class VariableAST : public ExprAST {
+    const utf8::string var_name;
 
   public:
-    explicit VariableAST(const std::string &var_name) : var_name(var_name) {}
+    explicit VariableAST(const utf8::string &var_name) : var_name(var_name) {}
 };
 
 // Binary Expressions
-class BinaryExprAsT : ExprAST {
-    const std::string opr;
+class BinaryExprAsT : public ExprAST {
+    const utf8::string opr;
     Ptr<ExprAST> lhs, rhs;
 
   public:
-    BinaryExprAsT(const std::string &opr, Ptr<ExprAST> lhs, Ptr<ExprAST> rhs)
+    BinaryExprAsT(const utf8::string &opr, Ptr<ExprAST> lhs, Ptr<ExprAST> rhs)
         : opr(opr), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
 };
 
 // Function call
-class FunctionCallAST : ExprAST {
-    const std::string callee;
+class FunctionCallAST : public ExprAST {
+    const utf8::string callee;
     const std::vector<Ptr<ExprAST>> args;
 
   public:
-    FunctionCallAST(const std::string &callee,
+    FunctionCallAST(const utf8::string &callee,
                     std::vector<Ptr<ExprAST>> args)
         : callee(callee), args(std::move(args)) {}
 };
 
 // Function prototype
-class FunctionPrototypeAST : ExprAST {
-    const std::string function_name;
-    const std::vector<std::string> parameter_names;
+class FunctionPrototypeAST : public ExprAST {
+    const utf8::string function_name;
+    const std::vector<utf8::string> parameter_names;
 
   public:
-    FunctionPrototypeAST(const std::string &name,
-                         const std::vector<std::string> &param_names)
+    FunctionPrototypeAST(const utf8::string &name,
+                         const std::vector<utf8::string> &param_names)
         : function_name(name), parameter_names(param_names) {}
 };
 
 // Function
-class FunctionAST : ExprAST {
+class FunctionAST : public ExprAST {
     const Ptr<FunctionPrototypeAST> prototype;
     const Ptr<ExprAST> block;
 
@@ -83,12 +83,19 @@ class FunctionAST : ExprAST {
 // NOT using the CurToken & getNextToken as given in the tutorial
 
 // Helper functions
-Ptr<ExprAST> LogError(const std::string& str);
-Ptr<FunctionPrototypeAST> LogErrorP(const std::string& str);
+Ptr<ExprAST> LogError(const utf8::string& str);
+Ptr<FunctionPrototypeAST> LogErrorP(const utf8::string& str);
 
-Ptr<ExprAST> parseExpression();
+// These WON'T do error checking, if current token is okay
+
+// 'Primary' expressions
 Ptr<NumberAST> parseNumberExpr();
 Ptr<ExprAST> parseParenExpr();
+Ptr<ExprAST> parseIdentifierAndCalls();
+
+Ptr<ExprAST> parsePrimaryExpression();
+
+Ptr<ExprAST> parseExpression();
 Ptr<ExprAST> parseBinaryExpr();
 Ptr<FunctionPrototypeAST> parsePrototypeExpr();
 Ptr<FunctionAST> parseFunctionExpr();

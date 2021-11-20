@@ -3,14 +3,13 @@
 #include <cctype>
 #include <cstdio>
 #include <cstring>
-#include <string>
+#include "utf8.hpp"
 #include <vector>
 
 #include "tokens.hpp"
 
 // clang-format off
-// FUTURE: Use std::u8string instead
-static const std::vector<std::string> LANG_KEYWORDS
+static const std::vector<utf8::string> LANG_KEYWORDS
     = {
         "if", "else", "for", "while", "return",
         "यदि", "अथवा", "लूप", "लघुलूप", "वापसी",

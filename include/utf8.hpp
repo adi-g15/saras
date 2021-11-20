@@ -1,6 +1,6 @@
 #pragma once
 
-#include "tokens.hpp"
+#include "util.hpp"
 #include <array>
 #include <cctype>
 #include <cstdint>
@@ -24,9 +24,13 @@ using _char =
     std::variant<char, array<uint8_t, 2>, array<uint8_t, 3>, array<uint8_t, 4>,
                  monostate>; /* If it is empty, that signifies EOF */
 
-// Considering ASCII to also include 'EOF' (which isn't the case, but helps logic)
+// FUTURE: Use std::u8string instead
+using string = std::string;
+
+// Considering ASCII to also include 'EOF' (which isn't the case, but helps
+// logic)
 inline bool is_not_ascii(const _char &c) {
-    return ! (holds_alternative<char>(c) || holds_alternative<monostate>(c));
+    return !(holds_alternative<char>(c) || holds_alternative<monostate>(c));
 }
 
 inline bool isspace(const _char &c) {
@@ -52,7 +56,8 @@ inline bool is_eof(const _char &c) { return holds_alternative<monostate>(c); }
 // know if it is ascii or more digits of some utf-8 character follow
 // https://en.wikipedia.org/wiki/UTF-8#Encoding
 // read utf-8 character from stdin
-// static, else it WILL cause multiple definitions linker error (even with #pragma once)
+// static, else it WILL cause multiple definitions linker error (even with
+// #pragma once)
 static _char get_character() {
     int tmp = getchar();
 
@@ -107,7 +112,7 @@ static inline bool operator!=(const utf8::_char &uc, char c) {
 }
 
 // Overloaded '+=' operator, so that UTF-8 character can be pushed to string
-static void operator+=(std::string &s, const utf8::_char &c) {
+static void operator+=(utf8::string &s, const utf8::_char &c) {
     auto visiter = overload{
         [&s](char c) { s += c; },
         [&s](const array<uint8_t, 2> &c) {
