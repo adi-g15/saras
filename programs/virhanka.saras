@@ -1,0 +1,7 @@
+chakra virhanka(n)
+    if n < 1 then
+        1
+    else
+        n*virhanka(n-1)
+
+virhanka(5)

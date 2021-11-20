@@ -1,18 +1,22 @@
 #include "lexer.hpp"
+#include "tokens.hpp"
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
-#include <ranges>
 #include <string>
+#include <variant>
 
 #ifdef DEBUG
 #include <iostream>
 #include <tabulate/table.hpp>
 #endif
 
+using std::holds_alternative;
+
 Token get_next_token() {
     static int LastChar = ' '; // int, not char, just that negative values make
                                // sense then, and getchar also returns int
+    std::string data_str;
 
     /* Ignore all whitespaces (also true for first call to this function) */
     while (isspace(LastChar)) {
@@ -21,35 +25,33 @@ Token get_next_token() {
 
     /* [A-Z|a-z] */
     if (isalpha(LastChar)) {
-        DataStr.clear();
         /* [A-Z|a-z][A-Z|a-z|0-9]+ */
         while (isalnum(LastChar)) {
-            DataStr += LastChar;
+            data_str += LastChar;
             LastChar = getchar();
         }
 
-        if (DataStr == "fn") {
-            return TOK_FN;
-        } else if (DataStr == "extern") {
-            return TOK_EXTERN;
-        } else if (std::ranges::find(LANG_KEYWORDS, DataStr) !=
-                   LANG_KEYWORDS.cend()) {
-            return TOK_KEYWORDS;
+        if (data_str == "chakra") {
+            return TOK_FN{};
+        } else if (data_str == "extern") {
+            return TOK_EXTERN{};
+        } else if (std::find(LANG_KEYWORDS.cbegin(), LANG_KEYWORDS.cend(),
+                             data_str) != LANG_KEYWORDS.cend()) {
+            return TOK_KEYWORDS{data_str};
         }
 
-        return TOK_IDENTIFIER;
+        return TOK_IDENTIFIER{data_str};
     } else if (isdigit(LastChar)) {
         /* [0-9] */
-        DataStr = LastChar;
+        data_str = LastChar;
 
         LastChar = getchar();
         while (isdigit(LastChar) || (LastChar == '.')) {
-            DataStr += LastChar;
+            data_str += LastChar;
             LastChar = getchar();
         }
 
-        NumVal = std::stod(DataStr);
-        return TOK_NUMBER;
+        return TOK_NUMBER{std::stod(data_str)};
     } else if (LastChar == '#') { // it is a single-line comment
         // std::getline(std::cin, DataStr);    // read the line
 
@@ -60,50 +62,49 @@ Token get_next_token() {
         // Case if it's EOF or not is handled by next call
         return get_next_token();
     } else if (LastChar == EOF) {
-        return TOK_EOF;
+        return TOK_EOF{};
     }
 
     // NOTE TO CALLER: Only use DataStr[0], in case of TOK_OTHER
-    DataStr = LastChar;
+    data_str = LastChar;
 
     LastChar = getchar(); // next call should use a different value of LastChar
-    return TOK_OTHER;
+    return TOK_OTHER{data_str};
 }
 
 #ifdef DEBUG
 void _DEBUG_read_tokens() {
-    Token t = TOK_OTHER;
+    Token t = TOK_OTHER{""};
 
     using namespace tabulate;
 
     Table table;
 
-    auto token_name = [&t]() -> const char * {
-        switch (t) {
-        case TOK_EOF:
-            return "EOF";
-        case TOK_FN:
-            return "FN";
-        case TOK_EXTERN:
-            return "EXTERN";
-        case TOK_IDENTIFIER:
-            return "IDENTIFIER";
-        case TOK_KEYWORDS:
-            return "KEYWORD";
-        case TOK_NUMBER:
-            return "NUMBER";
-        case TOK_OTHER:
-            return "OTHER";
-        default:
-            return "----";
-        }
-    };
+    auto visiter_tok_to_str =
+        overload{[](const TOK_EOF &) { return "EOF"; },
+                 [](const TOK_FN &) { return "FN"; },
+                 [](const TOK_EXTERN &) { return "EXTERN"; },
+                 [](const TOK_IDENTIFIER &) { return "IDENTIFIER"; },
+                 [](const TOK_KEYWORDS &) { return "KEYWORD"; },
+                 [](const TOK_NUMBER &) { return "NUMBER"; },
+                 [](const TOK_OTHER &) { return "OTHER"; }};
 
+    auto visiter_datastr =
+        overload{[](const TOK_EOF &t) -> std::string { return ""; },
+                 [](const TOK_FN &t) -> std::string { return ""; },
+                 [](const TOK_EXTERN &t) -> std::string { return ""; },
+                 [](const TOK_IDENTIFIER &t) { return t.identifier_str; },
+                 [](const TOK_KEYWORDS &t) { return t.str; },
+                 [](const TOK_NUMBER &t) { return std::to_string(t.val); },
+                 [](const TOK_OTHER &t) { return t.data; }};
+
+    auto token_name = std::visit(visiter_tok_to_str, t);
+    auto token_datastr = std::visit(visiter_datastr, t);
     table.add_row({"Token", "  DataStr  "});
-    while (t != TOK_EOF) {
+    while (holds_alternative<TOK_EOF>(t)) {
         t = get_next_token();
 
-        table.add_row({token_name(), DataStr});
+        table.add_row({token_name, token_datastr});
     }
 
     table[0]

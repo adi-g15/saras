@@ -9,6 +9,11 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 
+if(CMAKE_GENERATOR STREQUAL "Ninja")
+    message("Enabling color in Ninja color")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fdiagnostics-color=always")
+endif()
+
 include(cmake/CPM.cmake)
 
 CPMAddPackage("gh:p-ranav/tabulate@1.4")

@@ -6,26 +6,10 @@
 #include <string>
 #include <vector>
 
-static std::string DataStr;
-static double NumVal;
+#include "tokens.hpp"
 
-static const std::vector<std::string> LANG_KEYWORDS = {"if", "else", "for", "while", "return"};
-
-// Else, other tokens
-enum Token : int {
-    TOK_EOF,
-
-    // Function & extern
-    TOK_FN,
-    TOK_EXTERN,
-
-    // Identifiers, Keywords & Numbers
-    TOK_IDENTIFIER,
-    TOK_KEYWORDS,
-    TOK_NUMBER,
-
-    TOK_OTHER
-};
+static const std::vector<std::string> LANG_KEYWORDS = {"if", "else", "for",
+                                                       "while", "return"};
 
 // The actual implementation of the lexer is a single function named gettok.
 // ( aka gettok ) - return next token
