@@ -112,9 +112,10 @@ Ptr<ExprAST> parseIdentifierAndCalls();
 
 Ptr<ExprAST> parsePrimaryExpression();
 
-Ptr<ExprAST> parseBinaryExpr();
 Ptr<ExprAST> parseBinaryHelperFn(Ptr<ExprAST> lhs, int min_precedence);
 
 Ptr<FunctionPrototypeAST> parsePrototypeExpr();
 Ptr<FunctionAST> parseFunctionExpr();
 Ptr<ExprAST> parseExpression();
+Ptr<FunctionPrototypeAST> parseExternPrototypeExpr();
+Ptr<FunctionAST> parseTopLevelExpr();

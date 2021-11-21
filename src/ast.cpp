@@ -143,21 +143,19 @@ Ptr<ExprAST> parsePrimaryExpression() {
     }
 }
 
-// Expects to be called when the current token is TOK_NUMBER
-Ptr<ExprAST> parseExpression() {}
-
 /**
  * @expects: CurrentToken is Primary Token(TOK_IDENTIFIER or TOK_NUMBER or '(')
  *           ie. an expression can be parsed
  *
- * @ref: https://en.wikipedia.org/wiki/Operator-precedence_parser#Pseudocode
- *
  * @matches:
- * binaryexpr
+ * expr
  *   => expr
- *   => expr (operator, expr)*
+ *   => expr (binary_operator, expr)*
  **/
-Ptr<ExprAST> parseBinaryExpr() {
+Ptr<ExprAST> parseExpression() {
+    /* First try parsing a primary expression
+     * Then, we can simply pass it as LHS to ParseBinaryHelperFn, since it will
+     * simply return the LHS when the next token isn't found to be an operator*/
     return parseBinaryHelperFn(parsePrimaryExpression(), 0);
 }
 
@@ -169,7 +167,7 @@ int GetPrecedence(utf8::_char c) {
 }
 
 /**
- * @expects: Called by parseBinaryExpr()
+ * @expects: Called by parseExpression()
  *
  * @returns Returns computed expression as LHS once a token has precendence of
  * < min_precedence
@@ -180,6 +178,7 @@ Ptr<ExprAST> parseBinaryHelperFn(Ptr<ExprAST> lhs, int min_precedence) {
     auto lookahead = CurrentToken; // should be operator
 
     // Operators exist ONLY when CurrentToken is TOK_OTHER
+    // return LHS itself, if current token isn't an operator
     if (!holds_alternative<TOK_OTHER>(lookahead)) {
         // if CurrentToken isn't an operator, then return lhs
         // the 'binaryexpr => expr' case
@@ -230,8 +229,116 @@ Ptr<ExprAST> parseBinaryHelperFn(Ptr<ExprAST> lhs, int min_precedence) {
     return lhs;
 }
 
-Ptr<FunctionPrototypeAST> parsePrototypeExpr();
-Ptr<FunctionAST> parseFunctionExpr();
+/**
+ * @expects: CurrentToken is TOK_IDENTIFIER (ie. name of function)
+ *
+ * @matches:
+ *   expr
+ *     => id '(' id, id, ... ')'
+ **/
+Ptr<FunctionPrototypeAST> parsePrototypeExpr() {
+    debug_assert<__LINE__>(holds_alternative<TOK_IDENTIFIER>(CurrentToken));
+
+    auto function_name = CurrentToken;
+
+    if (!holds_alternative<TOK_IDENTIFIER>(CurrentToken)) {
+        return LogErrorP("Expected function name in prototype");
+    }
+
+    CurrentToken = get_next_token();
+
+    if (CurrentToken != '(') {
+        return LogErrorP(
+            "Expected '(' after function name in prototype.\nProbably you "
+            "forgot '(' after func in \"fn func\" ?");
+    }
+
+    CurrentToken = get_next_token(); // eat '('
+
+    std::vector<utf8::string> arg_names;
+
+    while (holds_alternative<TOK_IDENTIFIER>(CurrentToken)) {
+        arg_names.push_back(
+            std::get<TOK_IDENTIFIER>(CurrentToken).identifier_str);
+
+        CurrentToken = get_next_token();
+        if (CurrentToken == ')')
+            break;
+
+        if (CurrentToken != ',') {
+            return LogErrorP(
+                "Expected ',' or ')' in function arguments portion of the "
+                "prototype.\nProbably you forgot a comma in between two "
+                "argument names, for eg, this will error: \"fn func(a b)\"");
+        }
+
+        CurrentToken = get_next_token(); // eat ','
+    }
+
+    CurrentToken = get_next_token(); // eat ')'
+    return std::make_unique<FunctionPrototypeAST>(
+        std::get<TOK_IDENTIFIER>(function_name).identifier_str, arg_names);
+}
+
+/**
+ * @expects: CurrentToken is TOK_FN, ie. holding the function's name
+ *
+ * @matches:
+ *   expr => 'fn' prototype expression
+ *
+ * @note - The expression field is the body, currently single expression
+ */
+Ptr<FunctionAST> parseFunctionExpr() {
+    debug_assert<__LINE__>(holds_alternative<TOK_FN>(CurrentToken));
+
+    CurrentToken = get_next_token(); // eat 'fn' keyword
+    auto prototype = parsePrototypeExpr();
+    auto body = parseExpression();
+
+    if (!prototype || !body)
+        return nullptr;
+
+    return std::make_unique<FunctionAST>(std::move(prototype), std::move(body));
+}
+
+/**
+ * @expects: CurrentToken is TOK_EXTERN
+ *
+ * @matches:
+ *   expr => extern fn_prototype
+ */
+Ptr<FunctionPrototypeAST> parseExternPrototypeExpr() {
+    debug_assert<__LINE__>(holds_alternative<TOK_EXTERN>(CurrentToken));
+
+    get_next_token(); // eat 'extern' keyword
+    return parsePrototypeExpr();
+}
+
+/**
+ * @expects: Any token that can be used/built into an expression
+ *
+ * @use: Helps compute top level expressions also, for eg. like in python/other
+ * interpreters, type 'x+5', then output the result, same way, what we do is,
+ * treat it like a function with that body, ie.
+ *
+ * fn ()
+ *   x+5
+ *
+ * So, nothing to add, just create a nullary (zero arguments) function with the
+ * expression as its body, so it can be evaluated as any other function
+ *
+ * @matches:
+ * toplevelexpr => expression
+ */
+Ptr<FunctionAST> parseTopLevelExpr() {
+    auto expr = parseExpression();
+    if (!expr)
+        return nullptr;
+
+    return std::make_unique<FunctionAST>(
+        std::make_unique<FunctionPrototypeAST>("", std::vector<utf8::string>()),
+        std::move(expr));
+}
 
 Ptr<ExprAST> LogError(const utf8::string &str) {
     std::cerr << "LogError: " << str << '\n';

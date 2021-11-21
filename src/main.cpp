@@ -5,6 +5,7 @@
 #include "ast.hpp"
 #include "lexer.hpp"
 #include "tokens.hpp"
+#include "interpreter.hpp"
 #include "visualise.hpp"
 #include <exception>
 #include <iostream>
@@ -15,11 +16,13 @@ Token CurrentToken;
 int main() {
     // _DEBUG_read_tokens();
 
-    CurrentToken = get_next_token();
+    // CurrentToken = get_next_token();
     try {
-        auto ast = parseBinaryExpr();
 
-        visualise_ast(ast.get());
+    //     auto ast = parseExpression();
+    //     visualise_ast(ast.get());
+
+    run_interpreter();
     } catch (std::string &s) {
         std::cout << s << std::endl;
     } catch ( std::exception& e ) {
