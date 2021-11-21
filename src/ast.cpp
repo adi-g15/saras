@@ -189,8 +189,15 @@ Ptr<ExprAST> parseBinaryHelperFn(Ptr<ExprAST> lhs, int min_precedence) {
         return lhs;
     }
 
-    while (GetPrecedence(std::get<TOK_OTHER>(lookahead).c) >= min_precedence) {
-        auto binary_opr = std::get<TOK_OTHER>(CurrentToken).c; // = lookahead
+    auto binary_opr = std::get<TOK_OTHER>(CurrentToken).c; // = lookahead
+    while (GetPrecedence(binary_opr) >= min_precedence) {
+        // At the end of this while loop, we do a parseBinaryHelperFn, which
+        // advances to next token, which maybe EOF etc., so break (this
+        // condition may have also been added to the above while loop)
+        if (!holds_alternative<TOK_OTHER>(CurrentToken))
+            break;
+
+        binary_opr = std::get<TOK_OTHER>(CurrentToken).c; // = lookahead
 
         CurrentToken = get_next_token(); // eat binary operator
         auto rhs = parsePrimaryExpression();
@@ -202,18 +209,21 @@ Ptr<ExprAST> parseBinaryHelperFn(Ptr<ExprAST> lhs, int min_precedence) {
         // while (GetPrecedence(std::get<TOK_OTHER>(lookahead).c) >=
         //        opr_precedence) {
         //     rhs = parseBinaryHelperFn(std::move(rhs), opr_precedence + 1);
-        //     lookahead; parsePrimary reads the next token, so CurrentToken is updated
+        //     lookahead; parsePrimary reads the next token, so CurrentToken is
+        //     updated
         // }
-        if (GetPrecedence(std::get<TOK_OTHER>(lookahead).c) > opr_precedence) {
+        /* Why the additional check ? Because it may be ';', or EOF */
+        if (holds_alternative<TOK_OTHER>(lookahead) &&
+            GetPrecedence(std::get<TOK_OTHER>(lookahead).c) > opr_precedence) {
             rhs = parseBinaryHelperFn(std::move(rhs), opr_precedence + 1);
             // parsePrimary reads the next token, so CurrentToken is updated
             lookahead = CurrentToken; // lookahead
         }
 
-        if(!rhs)
+        if (!rhs)
             return nullptr;
 
-        lhs = std::make_unique<BinaryExprAsT>(std::move(lhs), binary_opr,
+        lhs = std::make_unique<BinaryExprAST>(std::move(lhs), binary_opr,
                                               std::move(rhs));
     }
 

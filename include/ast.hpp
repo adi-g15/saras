@@ -20,6 +20,8 @@ class NumberAST : public ExprAST {
 
   public:
     explicit NumberAST(double val) : value(val) {}
+
+    friend void recursive_ast(ExprAST *e, int &max_idx, std::ofstream &fout);
 };
 
 // Variable
@@ -28,6 +30,8 @@ class VariableAST : public ExprAST {
 
   public:
     explicit VariableAST(const utf8::string &var_name) : var_name(var_name) {}
+
+    friend void recursive_ast(ExprAST *e, int &max_idx, std::ofstream &fout);
 };
 
 static const std::map<utf8::_char, int> OPERATOR_PRECENDENCE_TABLE = {
@@ -38,13 +42,15 @@ static const std::map<utf8::_char, int> OPERATOR_PRECENDENCE_TABLE = {
 };
 
 // Binary Expressions
-class BinaryExprAsT : public ExprAST {
+class BinaryExprAST : public ExprAST {
     const utf8::_char opr;
     Ptr<ExprAST> lhs, rhs;
 
   public:
-    BinaryExprAsT(Ptr<ExprAST> lhs, const utf8::_char &opr, Ptr<ExprAST> rhs)
+    BinaryExprAST(Ptr<ExprAST> lhs, const utf8::_char &opr, Ptr<ExprAST> rhs)
         : lhs(std::move(lhs)), opr(opr), rhs(std::move(rhs)) {}
+
+    friend void recursive_ast(ExprAST *e, int &max_idx, std::ofstream &fout);
 };
 
 // Function call
@@ -55,6 +61,8 @@ class FunctionCallAST : public ExprAST {
   public:
     FunctionCallAST(const utf8::string &callee, std::vector<Ptr<ExprAST>> args)
         : callee(callee), args(std::move(args)) {}
+
+    friend void recursive_ast(ExprAST *e, int &max_idx, std::ofstream &fout);
 };
 
 // Function prototype
@@ -66,6 +74,8 @@ class FunctionPrototypeAST : public ExprAST {
     FunctionPrototypeAST(const utf8::string &name,
                          const std::vector<utf8::string> &param_names)
         : function_name(name), parameter_names(param_names) {}
+
+    friend void recursive_ast(ExprAST *e, int &max_idx, std::ofstream &fout);
 };
 
 // Function
@@ -76,6 +86,8 @@ class FunctionAST : public ExprAST {
   public:
     FunctionAST(Ptr<FunctionPrototypeAST> prototype, Ptr<ExprAST> block)
         : prototype(std::move(prototype)), block(std::move(block)) {}
+
+    friend void recursive_ast(ExprAST *e, int &max_idx, std::ofstream &fout);
 };
 
 /**

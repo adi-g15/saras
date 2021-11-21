@@ -5,6 +5,7 @@
 #include "ast.hpp"
 #include "lexer.hpp"
 #include "tokens.hpp"
+#include "visualise.hpp"
 #include <exception>
 #include <iostream>
 #include <variant>
@@ -17,6 +18,8 @@ int main() {
     CurrentToken = get_next_token();
     try {
         auto ast = parseBinaryExpr();
+
+        visualise_ast(ast.get());
     } catch (std::string &s) {
         std::cout << s << std::endl;
     } catch ( std::exception& e ) {
