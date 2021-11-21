@@ -66,19 +66,18 @@ Token get_next_token() {
         return TOK_EOF{};
     }
 
-    data_str.clear();
-    data_str += LastChar;
+    auto current = TOK_OTHER{LastChar};
 
     // Now advance lexer pointer, next call should use a different value of
     // LastChar
     LastChar = utf8::get_character();
 
-    return TOK_OTHER{data_str};
+    return current;
 }
 
 #ifdef DEBUG
 void _DEBUG_read_tokens() {
-    Token t = TOK_OTHER{""};
+    Token t = TOK_OTHER{' '};
 
     using namespace tabulate;
 
@@ -100,7 +99,7 @@ void _DEBUG_read_tokens() {
                  [](const TOK_IDENTIFIER &t) { return t.identifier_str; },
                  [](const TOK_KEYWORDS &t) { return t.str; },
                  [](const TOK_NUMBER &t) { return std::to_string(t.val); },
-                 [](const TOK_OTHER &t) { return t.data; }};
+                 [](const TOK_OTHER &t) { return utf8::to_string(t.c); }};
 
     table.add_row({"Token", "  DataStr  "});
     while (!holds_alternative<TOK_EOF>(t)) {

@@ -101,6 +101,8 @@ static _char get_character() {
         return c;
     }
 }
+
+static std::string to_string(utf8::_char c);
 } // namespace utf8
 
 static inline bool operator==(const utf8::_char &uc, char c) {
@@ -134,4 +136,10 @@ static void operator+=(utf8::string &s, const utf8::_char &c) {
     };
 
     std::visit(visiter, c);
+}
+
+static std::string utf8::to_string(utf8::_char c) {
+    std::string s;
+    s += c;
+    return s;
 }

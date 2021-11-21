@@ -2,6 +2,7 @@
 #include "assert.hpp"
 #include "lexer.hpp"
 #include "tokens.hpp"
+#include "utf8.hpp"
 #include "util.hpp"
 #include <iostream>
 #include <memory>
@@ -10,6 +11,26 @@
 
 using std::holds_alternative;
 
+extern Token CurrentToken;
+
+/**
+ * Interesting aspects of the LLVM's approach (not 'eating the last token'
+ * here):
+ *
+ * The routines eat all tokens that correspond to the production and returns
+ * the lexer buffer with the next token (OUR DOESN'T do this), which isn't
+ * part of the grammar production, ready to go Fairly a standard way to
+ * implement recursive descent parsers
+ *
+ * Look Ahead: having the next token (by calling get_next_token), but still
+ * processing/working on the current token, then that next token is the
+ * lookahead. For eg. currently read "factorial", then store this token/name
+ * in a variable/string, then call get_next_token(), we get either '=' or
+ * '(', that is the lookahead, now we can decide better, how to parse it,
+ * for eg. in first case it is normal variable name, in second case it is
+ * 'likely' a function call
+ */
+
 /** @expects: CurrentToken is TOK_NUMBER
  *
  * @matches:
@@ -17,7 +38,7 @@ using std::holds_alternative;
  *   => any constant number
  */
 Ptr<NumberAST> parseNumberExpr() {
-    debug_assert(holds_alternative<TOK_NUMBER>(CurrentToken));
+    debug_assert<__LINE__>(holds_alternative<TOK_NUMBER>(CurrentToken));
 
     auto expr =
         std::make_unique<NumberAST>(std::get<TOK_NUMBER>(CurrentToken).val);
@@ -35,7 +56,7 @@ Ptr<NumberAST> parseNumberExpr() {
  *   => func( exp1, exp2,... )
  */
 Ptr<ExprAST> parseIdentifierAndCalls() {
-    debug_assert(holds_alternative<TOK_IDENTIFIER>(CurrentToken));
+    debug_assert<__LINE__>(holds_alternative<TOK_IDENTIFIER>(CurrentToken));
 
     auto identifier = CurrentToken;
 
@@ -47,7 +68,7 @@ Ptr<ExprAST> parseIdentifierAndCalls() {
                                         using/comparing it, that is lookahead*/
     if (CurrentToken /*lookahead*/ != '(')
         return std::make_unique<VariableAST>(
-            std::get<TOK_IDENTIFIER>(CurrentToken).identifier_str);
+            std::get<TOK_IDENTIFIER>(identifier).identifier_str);
 
     CurrentToken = get_next_token(); // eats '(' (eat means to 'forget'
                                      // about the last token)
@@ -85,7 +106,7 @@ Ptr<ExprAST> parseIdentifierAndCalls() {
  *   => ( expr )
  */
 Ptr<ExprAST> parseParenExpr() {
-    debug_assert(CurrentToken == '(');
+    debug_assert<__LINE__>(CurrentToken == '(');
 
     CurrentToken = get_next_token();
 
@@ -106,45 +127,101 @@ Ptr<ExprAST> parseParenExpr() {
  * @expects: CurrentToken is TOK_IDENTIFIER, TOK_NUMBER or '('
  */
 Ptr<ExprAST> parsePrimaryExpression() {
-    debug_assert(CurrentToken == '(' ||
-                 holds_alternative<TOK_IDENTIFIER>(CurrentToken) ||
-                 holds_alternative<TOK_NUMBER>(CurrentToken));
+    debug_assert<__LINE__>(CurrentToken == '(' ||
+                           holds_alternative<TOK_IDENTIFIER>(CurrentToken) ||
+                           holds_alternative<TOK_NUMBER>(CurrentToken));
 
-    if( CurrentToken == '(' ) {
+    if (CurrentToken == '(') {
         return parseParenExpr();
-    } else if( holds_alternative<TOK_NUMBER>(CurrentToken) ) {
+    } else if (holds_alternative<TOK_NUMBER>(CurrentToken)) {
         return parseNumberExpr();
-    } else if( holds_alternative<TOK_IDENTIFIER>(CurrentToken) ) {
+    } else if (holds_alternative<TOK_IDENTIFIER>(CurrentToken)) {
         return parseIdentifierAndCalls();
     } else {
-        return LogError("Wrong token passed that can't be handled by parsePrimaryExpression()");
+        return LogError("Wrong token passed that can't be handled by "
+                        "parsePrimaryExpression()");
     }
 }
 
 // Expects to be called when the current token is TOK_NUMBER
 Ptr<ExprAST> parseExpression() {}
 
-Ptr<ExprAST> parseBinaryExpr();
-Ptr<FunctionPrototypeAST> parsePrototypeExpr();
-Ptr<FunctionAST> parseFunctionExpr();
+/**
+ * @expects: CurrentToken is Primary Token(TOK_IDENTIFIER or TOK_NUMBER or '(')
+ *           ie. an expression can be parsed
+ *
+ * @ref: https://en.wikipedia.org/wiki/Operator-precedence_parser#Pseudocode
+ *
+ * @matches:
+ * binaryexpr
+ *   => expr
+ *   => expr (operator, expr)*
+ **/
+Ptr<ExprAST> parseBinaryExpr() {
+    return parseBinaryHelperFn(parsePrimaryExpression(), 0);
+}
+
+int GetPrecedence(utf8::_char c) {
+    auto p = OPERATOR_PRECENDENCE_TABLE.find(c);
+    if (p == OPERATOR_PRECENDENCE_TABLE.cend())
+        return -1;
+    return p->second;
+}
 
 /**
- * Interesting aspects of the LLVM's approach (not 'eating the last token'
- * here):
+ * @expects: Called by parseBinaryExpr()
  *
- * The routines eat all tokens that correspond to the production and returns
- * the lexer buffer with the next token (OUR DOESN'T do this), which isn't
- * part of the grammar production, ready to go Fairly a standard way to
- * implement recursive descent parsers
+ * @returns Returns computed expression as LHS once a token has precendence of
+ * < min_precedence
  *
- * Look Ahead: having the next token (by calling get_next_token), but still
- * processing/working on the current token, then that next token is the
- * lookahead. For eg. currently read "factorial", then store this token/name
- * in a variable/string, then call get_next_token(), we get either '=' or
- * '(', that is the lookahead, now we can decide better, how to parse it,
- * for eg. in first case it is normal variable name, in second case it is
- * 'likely' a function call
- */
+ * @note: Only 'a' is also acceptable (the 'binaryexpr => expr' case)
+ **/
+Ptr<ExprAST> parseBinaryHelperFn(Ptr<ExprAST> lhs, int min_precedence) {
+    auto lookahead = CurrentToken; // should be operator
+
+    // Operators exist ONLY when CurrentToken is TOK_OTHER
+    if (!holds_alternative<TOK_OTHER>(lookahead)) {
+        // if CurrentToken isn't an operator, then return lhs
+        // the 'binaryexpr => expr' case
+        return lhs;
+    }
+    if (!lhs) {
+        return lhs;
+    }
+
+    while (GetPrecedence(std::get<TOK_OTHER>(lookahead).c) >= min_precedence) {
+        auto binary_opr = std::get<TOK_OTHER>(CurrentToken).c; // = lookahead
+
+        CurrentToken = get_next_token(); // eat binary operator
+        auto rhs = parsePrimaryExpression();
+
+        // parsePrimary reads the next token, so CurrentToken is updated
+        lookahead = CurrentToken;
+
+        auto opr_precedence = GetPrecedence(binary_opr);
+        // while (GetPrecedence(std::get<TOK_OTHER>(lookahead).c) >=
+        //        opr_precedence) {
+        //     rhs = parseBinaryHelperFn(std::move(rhs), opr_precedence + 1);
+        //     lookahead; parsePrimary reads the next token, so CurrentToken is updated
+        // }
+        if (GetPrecedence(std::get<TOK_OTHER>(lookahead).c) > opr_precedence) {
+            rhs = parseBinaryHelperFn(std::move(rhs), opr_precedence + 1);
+            // parsePrimary reads the next token, so CurrentToken is updated
+            lookahead = CurrentToken; // lookahead
+        }
+
+        if(!rhs)
+            return nullptr;
+
+        lhs = std::make_unique<BinaryExprAsT>(std::move(lhs), binary_opr,
+                                              std::move(rhs));
+    }
+
+    return lhs;
+}
+
+Ptr<FunctionPrototypeAST> parsePrototypeExpr();
+Ptr<FunctionAST> parseFunctionExpr();
 
 Ptr<ExprAST> LogError(const utf8::string &str) {
     std::cerr << "LogError: " << str << '\n';

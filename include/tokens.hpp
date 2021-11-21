@@ -20,8 +20,8 @@ struct TOK_KEYWORDS {
 struct TOK_NUMBER {
     double val;
 };
-struct TOK_OTHER { /*std::variant<int32_t, >*/
-    utf8::string data;
+struct TOK_OTHER {
+    utf8::_char c;
 };
 
 using Token = std::variant<TOK_EOF, TOK_FN, TOK_EXTERN, TOK_IDENTIFIER,
@@ -29,7 +29,7 @@ using Token = std::variant<TOK_EOF, TOK_FN, TOK_EXTERN, TOK_IDENTIFIER,
 
 /* Allows easy comparisons with say for eg. ')' */
 inline bool operator==(const Token& t, utf8::_char c) {
-    return std::holds_alternative<TOK_OTHER>(t) && (std::get<TOK_OTHER>(t) == c);
+    return std::holds_alternative<TOK_OTHER>(t) && (std::get<TOK_OTHER>(t).c == c);
 }
 
 inline bool operator!=(const Token& t, utf8::_char c) {

@@ -1,11 +1,10 @@
 #pragma once
 
-#include "utf8.hpp"
 #include "tokens.hpp"
+#include "utf8.hpp"
+#include <map>
 #include <memory>
 #include <vector>
-
-static Token CurrentToken;
 
 // Base Class
 class ExprAST {
@@ -31,14 +30,21 @@ class VariableAST : public ExprAST {
     explicit VariableAST(const utf8::string &var_name) : var_name(var_name) {}
 };
 
+static const std::map<utf8::_char, int> OPERATOR_PRECENDENCE_TABLE = {
+    {'<', 5},
+    {'+', 10},
+    {'-', 10},
+    {'*', 20},
+};
+
 // Binary Expressions
 class BinaryExprAsT : public ExprAST {
-    const utf8::string opr;
+    const utf8::_char opr;
     Ptr<ExprAST> lhs, rhs;
 
   public:
-    BinaryExprAsT(const utf8::string &opr, Ptr<ExprAST> lhs, Ptr<ExprAST> rhs)
-        : opr(opr), lhs(std::move(lhs)), rhs(std::move(rhs)) {}
+    BinaryExprAsT(Ptr<ExprAST> lhs, const utf8::_char &opr, Ptr<ExprAST> rhs)
+        : lhs(std::move(lhs)), opr(opr), rhs(std::move(rhs)) {}
 };
 
 // Function call
@@ -47,8 +53,7 @@ class FunctionCallAST : public ExprAST {
     const std::vector<Ptr<ExprAST>> args;
 
   public:
-    FunctionCallAST(const utf8::string &callee,
-                    std::vector<Ptr<ExprAST>> args)
+    FunctionCallAST(const utf8::string &callee, std::vector<Ptr<ExprAST>> args)
         : callee(callee), args(std::move(args)) {}
 };
 
@@ -83,8 +88,8 @@ class FunctionAST : public ExprAST {
 // NOT using the CurToken & getNextToken as given in the tutorial
 
 // Helper functions
-Ptr<ExprAST> LogError(const utf8::string& str);
-Ptr<FunctionPrototypeAST> LogErrorP(const utf8::string& str);
+Ptr<ExprAST> LogError(const utf8::string &str);
+Ptr<FunctionPrototypeAST> LogErrorP(const utf8::string &str);
 
 // These WON'T do error checking, if current token is okay
 
@@ -95,7 +100,9 @@ Ptr<ExprAST> parseIdentifierAndCalls();
 
 Ptr<ExprAST> parsePrimaryExpression();
 
-Ptr<ExprAST> parseExpression();
 Ptr<ExprAST> parseBinaryExpr();
+Ptr<ExprAST> parseBinaryHelperFn(Ptr<ExprAST> lhs, int min_precedence);
+
 Ptr<FunctionPrototypeAST> parsePrototypeExpr();
 Ptr<FunctionAST> parseFunctionExpr();
+Ptr<ExprAST> parseExpression();
