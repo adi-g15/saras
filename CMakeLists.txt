@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(Kaleidoscope√A
+project(saras
     VERSION 0.0.1
     LANGUAGES CXX
     )
@@ -23,9 +23,8 @@ add_compile_definitions("DEBUG")
 set(CMAKE_BUILD_TYPE "Debug")
 
 file(GLOB SOURCES src/*.cpp)
-# kra - Kaleidoscope Root A
-add_executable(kra ${SOURCES})
-target_link_libraries(kra tabulate)
+add_executable(saras ${SOURCES})
+target_link_libraries(saras tabulate)
 
 include_directories(include)
-install(TARGETS kra)
+install(TARGETS saras)

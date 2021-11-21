@@ -131,6 +131,8 @@ Ptr<ExprAST> parsePrimaryExpression() {
                            holds_alternative<TOK_IDENTIFIER>(CurrentToken) ||
                            holds_alternative<TOK_NUMBER>(CurrentToken));
 
+    if( CurrentToken == ';' )   return nullptr;    // ignore ';'
+
     if (CurrentToken == '(') {
         return parseParenExpr();
     } else if (holds_alternative<TOK_NUMBER>(CurrentToken)) {
@@ -197,6 +199,7 @@ Ptr<ExprAST> parseBinaryHelperFn(Ptr<ExprAST> lhs, int min_precedence) {
             break;
 
         binary_opr = std::get<TOK_OTHER>(CurrentToken).c; // = lookahead
+        auto opr_precedence = GetPrecedence(binary_opr);
 
         CurrentToken = get_next_token(); // eat binary operator
         auto rhs = parsePrimaryExpression();
@@ -204,7 +207,6 @@ Ptr<ExprAST> parseBinaryHelperFn(Ptr<ExprAST> lhs, int min_precedence) {
         // parsePrimary reads the next token, so CurrentToken is updated
         lookahead = CurrentToken;
 
-        auto opr_precedence = GetPrecedence(binary_opr);
         // while (GetPrecedence(std::get<TOK_OTHER>(lookahead).c) >=
         //        opr_precedence) {
         //     rhs = parseBinaryHelperFn(std::move(rhs), opr_precedence + 1);

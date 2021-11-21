@@ -67,8 +67,11 @@ void recursive_ast(ExprAST *e, int &max_idx, std::ofstream &fout) {
     }
 }
 
-void visualise_ast(ExprAST *root) {
-    std::ofstream fout("graph.dot");
+void visualise_ast(ExprAST *root, int i = 0) {
+    if (!root)
+        return;
+    std::ofstream fout("graph" + (i > 0 ? std::to_string(i) : std::string()) +
+                       ".dot");
     int max_idx = 0;
 
     fout << "graph \"\" {\n"
@@ -80,6 +83,5 @@ void visualise_ast(ExprAST *root) {
 
     fout.close();
 
-    std::system("dot -Tpng graph.dot > graph.png");
-    std::system("xdg-open graph.png");
+    std::system("dot -Tpng graph.dot > graph.png && xdg-open graph.png");
 }
