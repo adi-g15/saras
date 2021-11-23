@@ -24,7 +24,7 @@ set(CMAKE_BUILD_TYPE "Debug")
 
 file(GLOB SOURCES src/*.cpp)
 add_executable(saras ${SOURCES})
-target_link_libraries(saras tabulate)
+target_link_libraries(saras tabulate LLVM-13)
 
 include_directories(include)
 install(TARGETS saras)

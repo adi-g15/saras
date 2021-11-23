@@ -4,14 +4,38 @@
 #include "tokens.hpp"
 #include "utf8.hpp"
 #include "util.hpp"
+#include <algorithm>
 #include <iostream>
+#include <llvm/ADT/APFloat.h>
+#include <llvm/IR/BasicBlock.h>
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/InstrTypes.h>
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/Type.h>
+#include <llvm/IR/Value.h>
+#include <llvm/IR/Verifier.h>
+#include <map>
 #include <memory>
+#include <stdexcept>
+#include <string>
 #include <variant>
 #include <vector>
 
 using std::holds_alternative;
 
 extern Token CurrentToken;
+
+Ptr<llvm::LLVMContext> LContext;
+Ptr<llvm::IRBuilder<>> LBuilder;
+Ptr<llvm::Module> LModule;
+
+// NamedValues keeps tracks of variables defined in the current scope, and maps
+// to their llvm representation
+static std::map<utf8::string, llvm::Value *> NamedValues;
 
 /**
  * Interesting aspects of the LLVM's approach (not 'eating the last token'
@@ -131,7 +155,8 @@ Ptr<ExprAST> parsePrimaryExpression() {
                            holds_alternative<TOK_IDENTIFIER>(CurrentToken) ||
                            holds_alternative<TOK_NUMBER>(CurrentToken));
 
-    if( CurrentToken == ';' )   return nullptr;    // ignore ';'
+    if (CurrentToken == ';')
+        return nullptr; // ignore ';'
 
     if (CurrentToken == '(') {
         return parseParenExpr();
@@ -226,6 +251,13 @@ Ptr<ExprAST> parseBinaryHelperFn(Ptr<ExprAST> lhs, int min_precedence) {
 
         lhs = std::make_unique<BinaryExprAST>(std::move(lhs), binary_opr,
                                               std::move(rhs));
+        if (holds_alternative<TOK_OTHER>(lookahead)) {
+            // modify binary_opr to current token's character value, else it
+            // will become an infinite loop
+            binary_opr = std::get<TOK_OTHER>(lookahead).c;
+        } else {
+            binary_opr = '\0';
+        }
     }
 
     return lhs;
@@ -342,6 +374,156 @@ Ptr<FunctionAST> parseTopLevelExpr() {
         std::move(expr));
 }
 
+// codegen implementations
+llvm::Value *NumberAST::codegen() {
+    // in the LLVM IR that constants are all uniqued together and shared. For
+    // this reason, the API uses the “foo::get(…)” idiom instead of “new
+    // foo(..)” or “foo::Create(..)”
+    return llvm::ConstantFP::get(*LContext, llvm::APFloat(value));
+}
+
+llvm::Value *VariableAST::codegen() {
+    auto V = NamedValues[var_name];
+    if (!V)
+        LogErrorV("Unknown variable: " + var_name);
+    return V;
+}
+
+llvm::Value *BinaryExprAST::codegen() {
+    llvm::Value *lhs_codegen = lhs->codegen();
+    llvm::Value *rhs_codegen = rhs->codegen();
+
+    if (opr == '+') {
+        return LBuilder->CreateFAdd(lhs_codegen, rhs_codegen, "addtmp");
+    } else if (opr == '-') {
+        return LBuilder->CreateFSub(lhs_codegen, rhs_codegen, "subtmp");
+    } else if (opr == '*') {
+        return LBuilder->CreateFMul(lhs_codegen, rhs_codegen);
+    } else if (opr == '<') {
+        // My way:
+        // return Builder.CreateFCmp(llvm::CmpInst::FCMP_OLT, lhs_codegen,
+        // rhs_codegen); LLVM way:
+        auto L = LBuilder->CreateFCmpULT(lhs_codegen, rhs_codegen, "cmptmp");
+        // converting 0/1 (bool treated as int), to double
+        return LBuilder->CreateUIToFP(L, llvm::Type::getDoubleTy(*LContext));
+    } else {
+        throw std::logic_error("A case not handled, IMPLEMENT IT. Line: " +
+                               std::to_string(__LINE__));
+    }
+}
+
+llvm::Value *FunctionCallAST::codegen() {
+    // Look name in global module table
+    llvm::Function *CalleeFunction = LModule->getFunction(callee);
+
+    if (!CalleeFunction) {
+        return LogErrorV("Unknown function referenced: " + callee);
+    }
+
+    // Verify number of arguments is same (Type is double always neverthless)
+    if (CalleeFunction->arg_size() != args.size()) {
+        return LogErrorV("Wrong number of arguments passed: Expected: " +
+                         std::to_string(CalleeFunction->arg_size()) +
+                         ", Actual Passed: " + std::to_string(args.size()));
+    }
+
+    std::vector<llvm::Value *> PassedArgs(args.size());
+    std::transform(args.cbegin(), args.cend(), PassedArgs.begin(),
+                   [](const auto &a) { return a->codegen(); });
+
+    if (std::any_of(PassedArgs.cbegin(), PassedArgs.cend(),
+                    [](const auto *e) { return e == nullptr; }))
+        return nullptr;
+
+    return LBuilder->CreateCall(CalleeFunction, PassedArgs, callee);
+}
+
+llvm::Function *FunctionPrototypeAST::codegen() {
+    std::vector<llvm::Type *> ParameterTypes(parameter_names.size());
+
+    // there are N doubles
+    std::fill(ParameterTypes.begin(), ParameterTypes.end(),
+              llvm::Type::getDoubleTy(*LContext));
+
+    auto *func_type = llvm::FunctionType::get(
+        llvm::Type::getDoubleTy(*LContext), ParameterTypes, false);
+    auto *func =
+        llvm::Function::Create(func_type, llvm::Function::ExternalLinkage,
+                               function_name, LModule.get());
+
+    unsigned idx = 0;
+    for (auto &param : func->args()) {
+        param.setName(parameter_names[idx++]);
+    }
+
+    return func;
+}
+
+llvm::Function *FunctionAST::codegen() {
+    // Check, if the function name has already been declared (due to a previous
+    // "extern")
+    auto *func = LModule->getFunction(this->prototype->function_name);
+
+    if (!func) {
+        func = prototype->codegen();
+    }
+
+    if (!func) {
+        return nullptr;
+    }
+
+    /**
+     * @bug: This code does have a bug, though: If the FunctionAST::codegen()
+     * method finds an existing IR Function, it does not validate its signature
+     * against the definition’s own prototype. This means that an earlier
+     * ‘extern’ declaration will take precedence over the function definition’s
+     * signature, which can cause codegen to fail, for instance if the function
+     * arguments are named differently.
+     *  There are a number of ways to fix this bug, see what you can come up
+     * with! Here is a testcase:
+
+     *  extern foo(a);     # ok, defines foo.
+     *  def foo(b) b;      # Error: Unknown variable name. (decl using 'a' takes
+     *  precedence).
+
+     **/
+
+    // Check if function is NOT empty, ie. it has a function definition
+    if (func->empty() == false) {
+        LogErrorV("Cannot redefine function: " + prototype->function_name);
+        return nullptr;
+    }
+
+    // Create a basic block to start insertion into
+    // > Basic blocks in LLVM are an important part of functions that define the
+    // Control Flow Graph
+    auto *block = llvm::BasicBlock::Create(*LContext, "entry", func);
+
+    // tells the builder that new instructions should be inserted into the end
+    // of the new basic block
+    LBuilder->SetInsertPoint(block);
+
+    // add the function arguments to the NamedValues map (after first clearing
+    // it out) so that they’re accessible to VariableExprAST nodes.
+    NamedValues.clear();
+    for (auto &param : func->args()) {
+        NamedValues.insert_or_assign(param.getName().str(), &param);
+    }
+
+    auto *retval = this->block->codegen();
+    if (retval) {
+        LBuilder->CreateRet(retval);
+
+        llvm::verifyFunction(*func);
+
+        return func;
+    } else {
+        // Error reading body, remove function
+        func->eraseFromParent();
+        return nullptr;
+    }
+}
+
 Ptr<ExprAST> LogError(const utf8::string &str) {
     std::cerr << "LogError: " << str << '\n';
     return nullptr;
@@ -349,5 +531,10 @@ Ptr<ExprAST> LogError(const utf8::string &str) {
 
 Ptr<FunctionPrototypeAST> LogErrorP(const utf8::string &str) {
     LogError(str);
+    return nullptr;
+}
+
+llvm::Value *LogErrorV(const utf8::string &err) {
+    LogError(err);
     return nullptr;
 }

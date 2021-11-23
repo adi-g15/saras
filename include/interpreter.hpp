@@ -6,18 +6,33 @@
 #include "utf8.hpp"
 #include "util.hpp"
 #include "visualise.hpp"
+#include <cstdio>
 #include <iostream>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Module.h>
+#include <llvm/Support/raw_ostream.h>
 #include <ostream>
 #include <variant>
 
 extern Token CurrentToken;
+extern Ptr<llvm::LLVMContext> LContext;
+extern Ptr<llvm::IRBuilder<>> LBuilder;
+extern Ptr<llvm::Module> LModule;
 
 // Top level parsing
 static auto HandleFunctionDefinition() {
     auto expr = parseFunctionExpr();
-    if (expr)
+    if (expr) {
         std::cout << "Successfully parsed a function body" << std::endl;
-    else {
+
+        // Pretty print LLVM IR
+        if (auto *FnIR = expr->codegen()) {
+            FnIR->print(llvm::errs());
+            fprintf(stderr, "\n");
+        }
+
+    } else {
         std::cerr << "Failed to parse... Skipping" << std::endl;
         CurrentToken = get_next_token();
     }
@@ -26,9 +41,16 @@ static auto HandleFunctionDefinition() {
 
 static auto HandleExtern() {
     auto expr = parseExternPrototypeExpr();
-    if (expr)
+    if (expr) {
         std::cout << "Successfully parsed an extern prototype" << std::endl;
-    else {
+
+        // Pretty print LLVM IR
+        if (auto *FnIR = expr->codegen()) {
+            FnIR->print(llvm::errs());
+            fprintf(stderr, "\n");
+        }
+
+    } else {
         std::cerr << "Failed to parse... Skipping" << std::endl;
         CurrentToken = get_next_token();
     }
@@ -37,9 +59,18 @@ static auto HandleExtern() {
 
 static auto HandleTopLevelExpression() {
     auto expr = parseTopLevelExpr();
-    if (expr)
+    if (expr) {
         std::cout << "Successfully parsed a top level expression" << std::endl;
-    else {
+
+        // Pretty print LLVM IR
+        if (auto *FnIR = expr->codegen()) {
+            FnIR->print(llvm::errs());
+            fprintf(stderr, "\n");
+
+            // Remove the anonymous expression.
+            FnIR->eraseFromParent();
+        }
+    } else {
         std::cerr << "Failed to parse... Skipping" << std::endl;
         CurrentToken = get_next_token();
     }
@@ -48,6 +79,14 @@ static auto HandleTopLevelExpression() {
 
 // top ::= definition | external | expression | ';'
 void run_interpreter() {
+    // Initialise
+    // Open a new context and module.
+    LContext = std::make_unique<llvm::LLVMContext>();
+    LModule = std::make_unique<llvm::Module>("SARAS JIT", *LContext);
+
+    // Create a new builder for the module.
+    LBuilder = std::make_unique<llvm::IRBuilder<>>(*LContext);
+
     int num_lines = 0;
     auto visiter_run = overload{
         [&num_lines](TOK_EOF &t) {
@@ -63,32 +102,38 @@ void run_interpreter() {
             visualise_ast(HandleFunctionDefinition().get());
         },
         [&num_lines](TOK_KEYWORDS &t) {
-            std::cout << "Acting for TOK_KEYWORDS" << std::endl;
-            visualise_ast(parseExpression().get());
+            std::cout << "Handling top level expression" << std::endl;
+            visualise_ast(HandleTopLevelExpression().get());
         },
         [&num_lines](TOK_OTHER &t) {
             std::cout << "Acting for TOK_OTHER" << std::endl;
-            if (t == ';')
+            if (t == ';') {
+                CurrentToken = get_next_token();
                 return;
-            visualise_ast(parseExpression().get());
+            }
+            std::cout << "Handling top level expression" << std::endl;
+            visualise_ast(HandleTopLevelExpression().get());
         },
         [&num_lines](TOK_NUMBER &t) {
-            std::cout << "Acting for TOK_NUMBER" << std::endl;
-            visualise_ast(parseNumberExpr().get());
+            std::cout << "Handling top level expression" << std::endl;
+            visualise_ast(HandleTopLevelExpression().get());
         },
         [&num_lines](TOK_IDENTIFIER &t) {
-            std::cout << "Acting for TOK_IDENTIFIER" << std::endl;
-            visualise_ast(parseExpression().get());
+            std::cout << "Handling top level expression" << std::endl;
+            visualise_ast(HandleTopLevelExpression().get());
         },
     };
 
-    std::cout << "saras > ";
-    std::cout.flush();
+    std::printf("---------------------------------------- > ");
+    // std::printf("saras > ");
     CurrentToken = get_next_token();
     while (true) {
         std::visit(visiter_run, CurrentToken);
 
-        std::cout << "saras > ";
-        std::cout.flush();
+        std::printf("----------------------------------------- > ");
+        // std::printf("saras > ");
     }
+
+    // Print all generated code
+    LModule->print(llvm::errs(), nullptr);
 }

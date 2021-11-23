@@ -12,6 +12,7 @@
 #include <variant>
 
 Token CurrentToken;
+bool InterpreterMode = false;
 
 int main() {
     // _DEBUG_read_tokens();

@@ -2,36 +2,35 @@
 
 #include "tokens.hpp"
 #include "utf8.hpp"
+#include <llvm/IR/Value.h>
+#include <llvm/IR/Function.h>
 #include <map>
 #include <memory>
 #include <vector>
 
 // Base Class
-class ExprAST {
+struct ExprAST {
   public:
+    virtual llvm::Value *codegen() = 0;
     virtual ~ExprAST() {}
 };
 
 template <typename T> using Ptr = std::unique_ptr<T>;
 
 // Number
-class NumberAST : public ExprAST {
+struct NumberAST : public ExprAST {
     double value;
 
-  public:
+    llvm::Value *codegen() override;
     explicit NumberAST(double val) : value(val) {}
-
-    friend void recursive_ast(ExprAST *e, int &max_idx, std::ofstream &fout);
 };
 
 // Variable
-class VariableAST : public ExprAST {
+struct VariableAST : public ExprAST {
     const utf8::string var_name;
 
-  public:
+    llvm::Value *codegen() override;
     explicit VariableAST(const utf8::string &var_name) : var_name(var_name) {}
-
-    friend void recursive_ast(ExprAST *e, int &max_idx, std::ofstream &fout);
 };
 
 static const std::map<utf8::_char, int> OPERATOR_PRECENDENCE_TABLE = {
@@ -42,52 +41,49 @@ static const std::map<utf8::_char, int> OPERATOR_PRECENDENCE_TABLE = {
 };
 
 // Binary Expressions
-class BinaryExprAST : public ExprAST {
+struct BinaryExprAST : public ExprAST {
     const utf8::_char opr;
     Ptr<ExprAST> lhs, rhs;
 
-  public:
+    virtual llvm::Value *codegen();
     BinaryExprAST(Ptr<ExprAST> lhs, const utf8::_char &opr, Ptr<ExprAST> rhs)
         : lhs(std::move(lhs)), opr(opr), rhs(std::move(rhs)) {}
+};
 
-    friend void recursive_ast(ExprAST *e, int &max_idx, std::ofstream &fout);
+struct BlockAST: public ExprAST {
+
 };
 
 // Function call
-class FunctionCallAST : public ExprAST {
+struct FunctionCallAST : public ExprAST {
     const utf8::string callee;
     const std::vector<Ptr<ExprAST>> args;
 
-  public:
+    virtual llvm::Value *codegen();
     FunctionCallAST(const utf8::string &callee, std::vector<Ptr<ExprAST>> args)
         : callee(callee), args(std::move(args)) {}
-
-    friend void recursive_ast(ExprAST *e, int &max_idx, std::ofstream &fout);
 };
 
 // Function prototype
-class FunctionPrototypeAST : public ExprAST {
-    const utf8::string function_name;
+struct FunctionPrototypeAST : public ExprAST {
     const std::vector<utf8::string> parameter_names;
 
-  public:
+    const utf8::string function_name;
+
+    llvm::Function *codegen() override;
     FunctionPrototypeAST(const utf8::string &name,
                          const std::vector<utf8::string> &param_names)
         : function_name(name), parameter_names(param_names) {}
-
-    friend void recursive_ast(ExprAST *e, int &max_idx, std::ofstream &fout);
 };
 
 // Function
-class FunctionAST : public ExprAST {
+struct FunctionAST : public ExprAST {
     const Ptr<FunctionPrototypeAST> prototype;
     const Ptr<ExprAST> block;
 
-  public:
+    llvm::Function *codegen() override;
     FunctionAST(Ptr<FunctionPrototypeAST> prototype, Ptr<ExprAST> block)
         : prototype(std::move(prototype)), block(std::move(block)) {}
-
-    friend void recursive_ast(ExprAST *e, int &max_idx, std::ofstream &fout);
 };
 
 /**
@@ -102,6 +98,7 @@ class FunctionAST : public ExprAST {
 // Helper functions
 Ptr<ExprAST> LogError(const utf8::string &str);
 Ptr<FunctionPrototypeAST> LogErrorP(const utf8::string &str);
+llvm::Value* LogErrorV(const utf8::string &str);
 
 // These WON'T do error checking, if current token is okay
 

@@ -1,3 +1,4 @@
+* support alias a english/hindi keyword to any other language
 * add option to #include or import a name (for eg. "import notes as 0"), which
   requires a 'notes.module' file with 'lines' of data
 
@@ -24,6 +25,6 @@
   
   These modules will be searched in include directories passed with '-I' flag
 
-* Support Hindi
+* [Done] Support Hindi
 
 https://en.wikipedia.org/wiki/UTF-8#Encoding
