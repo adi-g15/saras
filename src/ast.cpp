@@ -344,7 +344,7 @@ Ptr<FunctionAST> parseFunctionExpr() {
 Ptr<FunctionPrototypeAST> parseExternPrototypeExpr() {
     debug_assert<__LINE__>(holds_alternative<TOK_EXTERN>(CurrentToken));
 
-    get_next_token(); // eat 'extern' keyword
+    CurrentToken = get_next_token(); // eat 'extern' keyword
     return parsePrototypeExpr();
 }
 
