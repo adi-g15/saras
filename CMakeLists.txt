@@ -14,17 +14,22 @@ if(CMAKE_GENERATOR STREQUAL "Ninja")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fdiagnostics-color=always")
 endif()
 
+set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake")
 include(cmake/CPM.cmake)
 
 CPMAddPackage("gh:p-ranav/tabulate@1.4")
 add_compile_definitions("DEBUG")
+
+find_package(LLVM REQUIRED)
 
 # Hardcode all builds to be debug build
 set(CMAKE_BUILD_TYPE "Debug")
 
 file(GLOB SOURCES src/*.cpp)
 add_executable(saras ${SOURCES})
-target_link_libraries(saras tabulate LLVM-13)
+target_link_libraries(saras tabulate LLVM)
+
+target_include_directories(saras PRIVATE ${LLVM_INCLUDE_DIRS})
 
 include_directories(include)
 install(TARGETS saras)
