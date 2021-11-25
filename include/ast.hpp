@@ -2,11 +2,13 @@
 
 #include "tokens.hpp"
 #include "utf8.hpp"
-#include <llvm/IR/Value.h>
 #include <llvm/IR/Function.h>
+#include <llvm/IR/Value.h>
 #include <map>
 #include <memory>
 #include <vector>
+
+using std::vector;
 
 // Base Class
 struct ExprAST {
@@ -38,6 +40,7 @@ static const std::map<utf8::_char, int> OPERATOR_PRECENDENCE_TABLE = {
     {'+', 10},
     {'-', 10},
     {'*', 20},
+    {'/', 20}
 };
 
 // Binary Expressions
@@ -50,39 +53,44 @@ struct BinaryExprAST : public ExprAST {
         : lhs(std::move(lhs)), opr(opr), rhs(std::move(rhs)) {}
 };
 
-struct BlockAST: public ExprAST {
+struct BlockAST : public ExprAST {
+    const vector<Ptr<ExprAST>> expressions;
 
+    llvm::Value *codegen();
+    virtual llvm::Value *codegen(llvm::Function*);
+    BlockAST(vector<Ptr<ExprAST>> expressions)
+        : expressions(std::move(expressions)) {}
 };
 
 // Function call
 struct FunctionCallAST : public ExprAST {
     const utf8::string callee;
-    const std::vector<Ptr<ExprAST>> args;
+    const vector<Ptr<ExprAST>> args;
 
     virtual llvm::Value *codegen();
-    FunctionCallAST(const utf8::string &callee, std::vector<Ptr<ExprAST>> args)
+    FunctionCallAST(const utf8::string &callee, vector<Ptr<ExprAST>> args)
         : callee(callee), args(std::move(args)) {}
 };
 
 // Function prototype
 struct FunctionPrototypeAST : public ExprAST {
-    const std::vector<utf8::string> parameter_names;
+    const vector<utf8::string> parameter_names;
 
     const utf8::string function_name;
 
     llvm::Function *codegen() override;
     FunctionPrototypeAST(const utf8::string &name,
-                         const std::vector<utf8::string> &param_names)
+                         const vector<utf8::string> &param_names)
         : function_name(name), parameter_names(param_names) {}
 };
 
 // Function
 struct FunctionAST : public ExprAST {
     const Ptr<FunctionPrototypeAST> prototype;
-    const Ptr<ExprAST> block;
+    const Ptr<BlockAST> block;
 
     llvm::Function *codegen() override;
-    FunctionAST(Ptr<FunctionPrototypeAST> prototype, Ptr<ExprAST> block)
+    FunctionAST(Ptr<FunctionPrototypeAST> prototype, Ptr<BlockAST> block)
         : prototype(std::move(prototype)), block(std::move(block)) {}
 };
 
@@ -98,7 +106,7 @@ struct FunctionAST : public ExprAST {
 // Helper functions
 Ptr<ExprAST> LogError(const utf8::string &str);
 Ptr<FunctionPrototypeAST> LogErrorP(const utf8::string &str);
-llvm::Value* LogErrorV(const utf8::string &str);
+llvm::Value *LogErrorV(const utf8::string &str);
 
 // These WON'T do error checking, if current token is okay
 
@@ -113,6 +121,7 @@ Ptr<ExprAST> parseBinaryHelperFn(Ptr<ExprAST> lhs, int min_precedence);
 
 Ptr<FunctionPrototypeAST> parsePrototypeExpr();
 Ptr<FunctionAST> parseFunctionExpr();
+Ptr<BlockAST> parseBlock();
 Ptr<ExprAST> parseExpression();
 Ptr<FunctionPrototypeAST> parseExternPrototypeExpr();
 Ptr<FunctionAST> parseTopLevelExpr();

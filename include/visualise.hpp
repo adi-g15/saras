@@ -42,8 +42,40 @@ void recursive_ast(ExprAST *e, int &max_idx, std::ofstream &fout) {
         fout << "idx" + std::to_string(max_idx) << "[label=\"" << v->var_name
              << "\"] ;\n";
 
+    } else if (is_same_ptr<BlockAST *>(e)) {
+        auto b = dynamic_cast<BlockAST *>(e);
+
+        fout << "idx" + std::to_string(max_idx) << ";\n";
+        fout << "idx" + std::to_string(max_idx) << "[label=\""
+             << "CodeBlock "
+             << "\"] ;\n";
+
+        fout << "idx" + std::to_string(max_idx) << " -- idx"
+             << std::to_string(max_idx + 1) << ";\n";
+        for (auto i = 0; i < b->expressions.size(); ++i) {
+            ++max_idx;
+
+            auto &expr = b->expressions[i];
+
+            fout << "idx" + std::to_string(max_idx) << ";\n";
+            fout << "idx" + std::to_string(max_idx) << "[label=\"Expr["
+                 << std::to_string(i) << "]\"] ;\n";
+
+            auto parent = max_idx;
+            fout << "idx" + std::to_string(max_idx) << " -- idx"
+                 << std::to_string(max_idx + 1) << ";\n";
+            recursive_ast(expr.get(), max_idx, fout);
+
+            // Dont create a connection for last node, since it doesn't have any
+            // next to connect to
+            if (i < b->expressions.size() - 1)
+                fout << "idx" + std::to_string(parent) << " -- idx"
+                     << std::to_string(max_idx + 1) << ";\n";
+        }
+
+        ++max_idx;
     } else if (is_same_ptr<FunctionCallAST *>(e)) {
-        auto f = dynamic_cast<FunctionCallAST*>(e);
+        auto f = dynamic_cast<FunctionCallAST *>(e);
         fout << "idx" + std::to_string(max_idx) << ";\n";
         fout << "idx" + std::to_string(max_idx) << "[label=\""
              << "FunctionCall: " << f->callee << "\"] ;\n";
@@ -51,7 +83,8 @@ void recursive_ast(ExprAST *e, int &max_idx, std::ofstream &fout) {
         auto parent_node = max_idx;
         for (auto &arg : f->args) {
             recursive_ast(arg.get(), max_idx, fout);
-            fout << "idx" + std::to_string(max_idx) << " -- idx" << std::to_string(parent_node) << ";\n";
+            fout << "idx" + std::to_string(max_idx) << " -- idx"
+                 << std::to_string(parent_node) << ";\n";
         }
     } else if (is_same_ptr<FunctionPrototypeAST *>(e)) {
         auto f = dynamic_cast<FunctionPrototypeAST *>(e);
@@ -63,9 +96,10 @@ void recursive_ast(ExprAST *e, int &max_idx, std::ofstream &fout) {
         for (auto &arg : f->parameter_names) {
             ++max_idx;
             fout << "idx" + std::to_string(max_idx) << ";\n";
-            fout << "idx" + std::to_string(max_idx) << "[label=\""
-                << arg << "\"] ;\n";
-            fout << "idx" + std::to_string(max_idx) << " -- idx" << std::to_string(parent_node) << ";\n";
+            fout << "idx" + std::to_string(max_idx) << "[label=\"" << arg
+                 << "\"] ;\n";
+            fout << "idx" + std::to_string(max_idx) << " -- idx"
+                 << std::to_string(parent_node) << ";\n";
         }
 
     } else if (is_same_ptr<FunctionAST *>(e)) {

@@ -1,4 +1,19 @@
 4+5;
 fn foo(a,b) a*a+2*a*b+b*b;
 fn bar(a) foo(a, 4.0) + bar(31337);
-प्रकर विरहंक(क, न) क*विरहंक(क-1,1) + (न*न+1-क) * foo(क,न)
+प्रकर विरहंक(क, न) क*विरहंक(क-1,1) + (न*न+1-क) * foo(क,न);
+34+65-6/2*65*1+6
+b=43;
+
+# After this all are wrong inputs
+a+4;
+b=45;
+c+b^a
+wAD&FT&^43w4h
+vsn9 (Dvn8RB 457 82rhfduhs89WRH#
+fn foo(a) a*a
+fn f a+b;
+fn g() {}
+fn f();
+fn f(a,v) a+v
+

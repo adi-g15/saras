@@ -107,8 +107,8 @@ Ptr<ExprAST> parseIdentifierAndCalls() {
             break;
 
         if (CurrentToken != ',') {
-            return LogError("Expected ',' in argument list.\nProbably you "
-                            "typed something like: \"func(a b'\" and "
+            return LogError("Expected ',' in argument list\n\t\tProbably you "
+                            "typed something like: \"func(a b\" and "
                             "forgot the ',' between a and b ?");
         } else {
             // eat ','
@@ -139,7 +139,7 @@ Ptr<ExprAST> parseParenExpr() {
     // Right now, CurrentToken should be at ')'
     if (CurrentToken != ')') {
         return LogError(
-            "Expected a matching ')'.\nProbably you wrote something like "
+            "Expected a matching ')'\n\t\tProbably you wrote something like "
             "\"(x+(y+2)\" and forgot a matching closing parenthesis");
     }
 
@@ -283,7 +283,7 @@ Ptr<FunctionPrototypeAST> parsePrototypeExpr() {
 
     if (CurrentToken != '(') {
         return LogErrorP(
-            "Expected '(' after function name in prototype.\nProbably you "
+            "Expected '(' after function name in prototype\n\t\tProbably you "
             "forgot '(' after func in \"fn func\" ?");
     }
 
@@ -302,7 +302,7 @@ Ptr<FunctionPrototypeAST> parsePrototypeExpr() {
         if (CurrentToken != ',') {
             return LogErrorP(
                 "Expected ',' or ')' in function arguments portion of the "
-                "prototype.\nProbably you forgot a comma in between two "
+                "prototype\n\t\tProbably you forgot a comma in between two "
                 "argument names, for eg, this will error: \"fn func(a b)\"");
         }
 
@@ -312,6 +312,45 @@ Ptr<FunctionPrototypeAST> parsePrototypeExpr() {
     CurrentToken = get_next_token(); // eat ')'
     return std::make_unique<FunctionPrototypeAST>(
         std::get<TOK_IDENTIFIER>(function_name).identifier_str, arg_names);
+}
+
+/**
+ * @expects: CurrentToken == '{', or at start of an expression */
+Ptr<BlockAST> parseBlock() {
+    std::vector<Ptr<ExprAST>> expressions;
+    if (CurrentToken == '{') {
+        CurrentToken = get_next_token(); // eat '{'
+
+        while (CurrentToken != '}') {
+            // TODO: Decide whether to eat ';' in parseExpression()
+            auto expr = parseExpression();
+
+            if (!expr) {
+                return nullptr;
+            }
+            expressions.push_back(std::move(expr));
+
+            CurrentToken = get_next_token();
+            if (holds_alternative<TOK_EOF>(CurrentToken)) {
+                LogErrorP(
+                    "Expected closing '}' for code block\n\t\tProbably you "
+                    "missed a '}' corresponding to a previous '}");
+                return nullptr;
+            } else if (CurrentToken == ';') {
+                CurrentToken = get_next_token(); // eat ';'
+            }
+        }
+
+        CurrentToken = get_next_token(); // eat '}'
+    } else {
+        // Simply return the next expression
+        auto expr = parseExpression();
+        if (!expr)
+            return nullptr;
+
+        expressions.push_back(std::move(expr));
+    }
+    return std::make_unique<BlockAST>(std::move(expressions));
 }
 
 /**
@@ -327,7 +366,7 @@ Ptr<FunctionAST> parseFunctionExpr() {
 
     CurrentToken = get_next_token(); // eat 'fn' keyword
     auto prototype = parsePrototypeExpr();
-    auto body = parseExpression();
+    auto body = parseBlock();
 
     if (!prototype || !body)
         return nullptr;
@@ -365,7 +404,7 @@ Ptr<FunctionPrototypeAST> parseExternPrototypeExpr() {
  * toplevelexpr => expression
  */
 Ptr<FunctionAST> parseTopLevelExpr() {
-    auto expr = parseExpression();
+    auto expr = parseBlock();
     if (!expr)
         return nullptr;
 
@@ -393,12 +432,21 @@ llvm::Value *BinaryExprAST::codegen() {
     llvm::Value *lhs_codegen = lhs->codegen();
     llvm::Value *rhs_codegen = rhs->codegen();
 
+    if (!lhs_codegen || !rhs_codegen) {
+        LogError(
+            "Invalid LHS or RHS of binary expression\n\t\tMaybe you used an "
+            "not-yet-defined variable ?");
+        return nullptr;
+    }
+
     if (opr == '+') {
         return LBuilder->CreateFAdd(lhs_codegen, rhs_codegen, "addtmp");
     } else if (opr == '-') {
         return LBuilder->CreateFSub(lhs_codegen, rhs_codegen, "subtmp");
     } else if (opr == '*') {
-        return LBuilder->CreateFMul(lhs_codegen, rhs_codegen);
+        return LBuilder->CreateFMul(lhs_codegen, rhs_codegen, "multmp");
+    } else if (opr == '/') {
+        return LBuilder->CreateFDiv(lhs_codegen, rhs_codegen, "divtmp");
     } else if (opr == '<') {
         // My way:
         // return Builder.CreateFCmp(llvm::CmpInst::FCMP_OLT, lhs_codegen,
@@ -407,9 +455,29 @@ llvm::Value *BinaryExprAST::codegen() {
         // converting 0/1 (bool treated as int), to double
         return LBuilder->CreateUIToFP(L, llvm::Type::getDoubleTy(*LContext));
     } else {
-        throw std::logic_error("A case not handled, IMPLEMENT IT. Line: " +
+        throw std::logic_error("An operator not handled: '" + utf8::to_string(opr) + "', IMPLEMENT IT. Line: " +
                                std::to_string(__LINE__));
     }
+}
+
+llvm::Value *BlockAST::codegen() {
+    LogError("BlockAST::codegen called without llvm function pointer");
+    return nullptr;
+}
+
+llvm::Value *BlockAST::codegen(llvm::Function *func) {
+    // Create a basic block to start insertion into
+    // > Basic blocks in LLVM are an important part of functions that define the
+    // Control Flow Graph
+    auto *block = llvm::BasicBlock::Create(*LContext, "entry", func);
+
+    // tells the builder that new instructions should be inserted into the end
+    // of the new basic block
+    LBuilder->SetInsertPoint(block);
+
+    // TODO: Add all instructions, currently just returning first expression's
+    // codegen
+    return expressions[0]->codegen();
 }
 
 llvm::Value *FunctionCallAST::codegen() {
@@ -493,16 +561,6 @@ llvm::Function *FunctionAST::codegen() {
         LogErrorV("Cannot redefine function: " + prototype->function_name);
         return nullptr;
     }
-
-    // Create a basic block to start insertion into
-    // > Basic blocks in LLVM are an important part of functions that define the
-    // Control Flow Graph
-    auto *block = llvm::BasicBlock::Create(*LContext, "entry", func);
-
-    // tells the builder that new instructions should be inserted into the end
-    // of the new basic block
-    LBuilder->SetInsertPoint(block);
-
     // add the function arguments to the NamedValues map (after first clearing
     // it out) so that they’re accessible to VariableExprAST nodes.
     NamedValues.clear();
@@ -510,7 +568,7 @@ llvm::Function *FunctionAST::codegen() {
         NamedValues.insert_or_assign(param.getName().str(), &param);
     }
 
-    auto *retval = this->block->codegen();
+    auto *retval = this->block->codegen(func);
     if (retval) {
         LBuilder->CreateRet(retval);
 

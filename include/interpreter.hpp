@@ -7,11 +7,13 @@
 #include "util.hpp"
 #include "visualise.hpp"
 #include <cstdio>
+#include <exception>
 #include <iostream>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 #include <llvm/Support/raw_ostream.h>
+#include <memory>
 #include <ostream>
 #include <variant>
 
@@ -28,6 +30,7 @@ static auto HandleFunctionDefinition() {
 
         // Pretty print LLVM IR
         if (auto *FnIR = expr->codegen()) {
+            // FnIR->print(llvm::errs());
             FnIR->print(llvm::errs());
             fprintf(stderr, "\n");
         }
@@ -87,25 +90,24 @@ void run_interpreter() {
     // Create a new builder for the module.
     LBuilder = std::make_unique<llvm::IRBuilder<>>(*LContext);
 
-    int num_lines = 0;
     auto visiter_run = overload{
-        [&num_lines](TOK_EOF &t) {
+        [](TOK_EOF &t) {
             std::cout << "Acting for EOF" << std::endl;
             std::exit(0);
         },
-        [&num_lines](TOK_EXTERN &t) {
+        [](TOK_EXTERN &t) {
             std::cout << "Acting for TOK_EXTERN" << std::endl;
             visualise_ast(HandleExtern().get());
         },
-        [&num_lines](TOK_FN &t) {
+        [](TOK_FN &t) {
             std::cout << "Acting for TOK_FN" << std::endl;
             visualise_ast(HandleFunctionDefinition().get());
         },
-        [&num_lines](TOK_KEYWORDS &t) {
+        [](TOK_KEYWORDS &t) {
             std::cout << "Handling top level expression" << std::endl;
             visualise_ast(HandleTopLevelExpression().get());
         },
-        [&num_lines](TOK_OTHER &t) {
+        [](TOK_OTHER &t) {
             std::cout << "Acting for TOK_OTHER" << std::endl;
             if (t == ';') {
                 CurrentToken = get_next_token();
@@ -114,11 +116,11 @@ void run_interpreter() {
             std::cout << "Handling top level expression" << std::endl;
             visualise_ast(HandleTopLevelExpression().get());
         },
-        [&num_lines](TOK_NUMBER &t) {
+        [](TOK_NUMBER &t) {
             std::cout << "Handling top level expression" << std::endl;
             visualise_ast(HandleTopLevelExpression().get());
         },
-        [&num_lines](TOK_IDENTIFIER &t) {
+        [](TOK_IDENTIFIER &t) {
             std::cout << "Handling top level expression" << std::endl;
             visualise_ast(HandleTopLevelExpression().get());
         },
@@ -128,7 +130,14 @@ void run_interpreter() {
     // std::printf("saras > ");
     CurrentToken = get_next_token();
     while (true) {
-        std::visit(visiter_run, CurrentToken);
+        try {
+            std::visit(visiter_run, CurrentToken);
+
+        } catch (std::string &e) {
+            std::cerr << e << std::endl;
+        } catch (std::exception &e) {
+            std::cerr << e.what() << std::endl;
+        }
 
         std::printf("----------------------------------------- > ");
         // std::printf("saras > ");

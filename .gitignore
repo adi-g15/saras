@@ -1,4 +1,6 @@
 build
+graph*
+!graphs/
 
 # Prerequisites
 *.d
