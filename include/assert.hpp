@@ -2,6 +2,8 @@
 
 #include "lexer.hpp"
 #include "tokens.hpp"
+#include <iostream>
+#include <rang.hpp>
 #include <stdexcept>
 #include <string>
 #include <variant>
@@ -30,10 +32,13 @@ template <unsigned int LINE> void debug_assert(bool b) {
                      [](const TOK_OTHER &t) { return utf8::to_string(t.c); }};
 
         CurrentToken = get_next_token();
+        std::cerr << rang::fg::red
+                  << "Assertion failed at Line:" + std::to_string(LINE) + " !"
+                  << rang::style::reset << std::endl;
         throw std::logic_error(
-            "Assertion failed at Line:" + std::to_string(LINE) + " !" +
-            "\nCurrentToken = " + std::visit(visiter_tok_to_str, CurrentToken) +
-            " { " + std::visit(visiter_datastr, CurrentToken) + " }");
+            std::string("CurrentToken = ") +
+            std::visit(visiter_tok_to_str, CurrentToken) + " { " +
+            std::visit(visiter_datastr, CurrentToken) + " }");
     }
 #endif
 }

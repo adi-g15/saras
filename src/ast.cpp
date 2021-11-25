@@ -1,6 +1,7 @@
 #include "ast.hpp"
 #include "assert.hpp"
 #include "lexer.hpp"
+#include "rang.hpp"
 #include "tokens.hpp"
 #include "utf8.hpp"
 #include "util.hpp"
@@ -455,8 +456,9 @@ llvm::Value *BinaryExprAST::codegen() {
         // converting 0/1 (bool treated as int), to double
         return LBuilder->CreateUIToFP(L, llvm::Type::getDoubleTy(*LContext));
     } else {
-        throw std::logic_error("An operator not handled: '" + utf8::to_string(opr) + "', IMPLEMENT IT. Line: " +
-                               std::to_string(__LINE__));
+        throw std::logic_error(
+            "An operator not handled: '" + utf8::to_string(opr) +
+            "', IMPLEMENT IT. Line: " + std::to_string(__LINE__));
     }
 }
 
@@ -583,7 +585,8 @@ llvm::Function *FunctionAST::codegen() {
 }
 
 Ptr<ExprAST> LogError(const utf8::string &str) {
-    std::cerr << "LogError: " << str << '\n';
+    std::cerr << rang::style::bold << rang::fg::red
+              << "LogError: " << rang::style::reset << str << '\n';
     return nullptr;
 }
 

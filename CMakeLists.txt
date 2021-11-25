@@ -17,7 +17,9 @@ endif()
 set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake")
 include(cmake/CPM.cmake)
 
+CPMAddPackage("gh:adi-g15/rang@3.2")
 CPMAddPackage("gh:p-ranav/tabulate@1.4")
+CPMAddPackage("gh:p-ranav/argparse@2.2")
 add_compile_definitions("DEBUG")
 
 find_package(LLVM REQUIRED)
@@ -27,7 +29,7 @@ set(CMAKE_BUILD_TYPE "Debug")
 
 file(GLOB SOURCES src/*.cpp)
 add_executable(saras ${SOURCES})
-target_link_libraries(saras tabulate LLVM)
+target_link_libraries(saras tabulate rang argparse LLVM)
 
 target_include_directories(saras PRIVATE ${LLVM_INCLUDE_DIRS})
 
