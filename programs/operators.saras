@@ -1,1 +1,2 @@
-a+b+c+d*e*f+g
+fn foo(a,b,c,d,e,f,g) a+b+c+d*e*f+g;
+

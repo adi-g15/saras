@@ -1,5 +1,5 @@
 build
-./graph*
+graph*
 !images/
 
 # Prerequisites

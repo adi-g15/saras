@@ -4,15 +4,19 @@
 #include "interpreter.hpp"
 #include "tokens.hpp"
 #include "utf8.hpp"
+#include "util.hpp"
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
+#include <istream>
 #include <variant>
 
 #include <iostream>
 #include <tabulate/table.hpp>
 
 using std::holds_alternative;
+
+extern std::basic_istream<char> *input;
 
 Token get_next_token() {
     static utf8::_char LastChar = char(' '); // UTF-8 character

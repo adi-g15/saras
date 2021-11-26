@@ -3,10 +3,10 @@
 #include <cctype>
 #include <cstdio>
 #include <cstring>
-#include "utf8.hpp"
 #include <vector>
 
 #include "tokens.hpp"
+#include "utf8.hpp"
 
 // clang-format off
 static const std::vector<utf8::string> LANG_KEYWORDS

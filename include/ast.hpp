@@ -2,6 +2,7 @@
 
 #include "tokens.hpp"
 #include "utf8.hpp"
+#include "util.hpp"
 #include <llvm/IR/Function.h>
 #include <llvm/IR/Value.h>
 #include <map>
@@ -16,8 +17,6 @@ struct ExprAST {
     virtual llvm::Value *codegen() = 0;
     virtual ~ExprAST() {}
 };
-
-template <typename T> using Ptr = std::unique_ptr<T>;
 
 // Number
 struct NumberAST : public ExprAST {

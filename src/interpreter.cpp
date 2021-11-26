@@ -6,11 +6,15 @@
 #include <cstdio>
 #include <exception>
 #include <iostream>
+#include <istream>
 #include <llvm/Support/raw_ostream.h>
 #include <rang.hpp>
 
-// Top level parsing
-static auto HandleFunctionDefinition(bool print_ir) {
+extern Ptr<llvm::LLVMContext> LContext;
+extern Ptr<llvm::IRBuilder<>> LBuilder;
+extern Ptr<llvm::Module> LModule;
+
+Ptr<FunctionAST> HandleFunctionDefinition(bool print_ir) {
     auto expr = parseFunctionExpr();
     if (expr) {
         // std::cout << "Successfully parsed a function body" << std::endl;
@@ -30,7 +34,7 @@ static auto HandleFunctionDefinition(bool print_ir) {
     return expr;
 }
 
-static auto HandleExtern(bool print_ir) {
+Ptr<FunctionPrototypeAST> HandleExtern(bool print_ir) {
     auto expr = parseExternPrototypeExpr();
     if (expr) {
         // std::cout << "Successfully parsed an extern prototype" << std::endl;
@@ -49,7 +53,8 @@ static auto HandleExtern(bool print_ir) {
     return expr;
 }
 
-static auto HandleTopLevelExpression(bool print_ir) {
+// Top level parsing
+Ptr<FunctionAST> HandleTopLevelExpression(bool print_ir) {
     auto expr = parseTopLevelExpr();
     if (expr) {
         // std::cout << "Successfully parsed a top level expression" <<
@@ -71,62 +76,62 @@ static auto HandleTopLevelExpression(bool print_ir) {
     return expr;
 }
 
-// top ::= definition | external | expression | ';'
-void run_interpreter(
-    /*bool no_print = false, */ bool parser_mode /*non interactive*/) {
-    // Initialise
-    // Open a new context and module.
-    LContext = std::make_unique<llvm::LLVMContext>();
-    LModule = std::make_unique<llvm::Module>("SARAS JIT", *LContext);
+void run_interpreter(std::unordered_set<std::string> options) {
+    bool parser_mode = options.find("parser-mode") != options.end();
+    bool no_print_ir = options.find("no-print-ir") != options.end();
+    bool no_print_prompt = options.find("no-print-prompt") != options.end();
 
-    // Create a new builder for the module.
-    LBuilder = std::make_unique<llvm::IRBuilder<>>(*LContext);
-
+    bool EofEncountered = false;
     auto visiter_run = overload{
-        [&parser_mode](TOK_EOF &t) {
+        [&](TOK_EOF &t) {
             std::cout << "Acting for EOF" << std::endl;
-            std::exit(0);
+            EofEncountered = true;
         },
-        [&parser_mode](TOK_EXTERN &t) {
-            visualise_ast(HandleExtern(!parser_mode).get());
+        [&](TOK_EXTERN &t) {
+            visualise_ast(HandleExtern(!parser_mode && !no_print_ir).get());
             if (parser_mode) {
                 std::cout << "Saved parsed AST for extern declaration"
                           << std::endl;
             }
         },
-        [&parser_mode](TOK_FN &t) {
-            visualise_ast(HandleFunctionDefinition(!parser_mode).get());
+        [&](TOK_FN &t) {
+            visualise_ast(
+                HandleFunctionDefinition(!parser_mode && !no_print_ir).get());
             if (parser_mode) {
                 std::cout << "Saved parsed AST for function" << std::endl;
             }
         },
-        [&parser_mode](TOK_KEYWORDS &t) {
-            visualise_ast(HandleTopLevelExpression(!parser_mode).get());
+        [&](TOK_KEYWORDS &t) {
+            visualise_ast(
+                HandleTopLevelExpression(!parser_mode && !no_print_ir).get());
             if (parser_mode) {
                 std::cout << "Saved parsed AST for top-level expression"
                           << std::endl;
             }
         },
-        [&parser_mode](TOK_OTHER &t) {
+        [&](TOK_OTHER &t) {
             if (t == ';') {
                 CurrentToken = get_next_token();
                 return;
             }
-            visualise_ast(HandleTopLevelExpression(!parser_mode).get());
+            visualise_ast(
+                HandleTopLevelExpression(!parser_mode && !no_print_ir).get());
             if (parser_mode) {
                 std::cout << "Saved parsed AST for top-level expression"
                           << std::endl;
             }
         },
-        [&parser_mode](TOK_NUMBER &t) {
-            visualise_ast(HandleTopLevelExpression(!parser_mode).get());
+        [&](TOK_NUMBER &t) {
+            visualise_ast(
+                HandleTopLevelExpression(!parser_mode && !no_print_ir).get());
             if (parser_mode) {
                 std::cout << "Saved parsed AST for top-level expression"
                           << std::endl;
             }
         },
-        [&parser_mode](TOK_IDENTIFIER &t) {
-            visualise_ast(HandleTopLevelExpression(!parser_mode).get());
+        [&](TOK_IDENTIFIER &t) {
+            visualise_ast(
+                HandleTopLevelExpression(!parser_mode && !no_print_ir).get());
             if (parser_mode) {
                 std::cout << "Saved parsed AST for top-level expression"
                           << std::endl;
@@ -135,10 +140,11 @@ void run_interpreter(
     };
 
     // if (!parser_mode)
-    std::cout << rang::fg::yellow << "--saras--> " << rang::style::reset;
+    if (!no_print_prompt)
+        std::cout << rang::fg::yellow << "--saras--> " << rang::style::reset;
 
     CurrentToken = get_next_token();
-    while (true) {
+    while (!EofEncountered) {
         try {
             std::visit(visiter_run, CurrentToken);
 
@@ -148,14 +154,21 @@ void run_interpreter(
             std::cerr << e.what() << std::endl;
         }
 
-        // if (!parser_mode)
-        std::cout << rang::fg::yellow << "--saras--> " << rang::style::reset;
+        if (!no_print_prompt)
+            std::cout << rang::fg::yellow << "--saras--> "
+                      << rang::style::reset;
     }
 
-    // Print all generated code
-    LModule->print(llvm::errs(), nullptr);
+    if (!no_print_ir && !no_print_prompt) {
+        std::cout << std::endl
+                  << rang::style::italic << rang::fg::green
+                  << "<-------------All generated IR-------------->"
+                  << rang::style::reset << std::endl;
+        // Print all generated code
+        LModule->print(llvm::errs(), nullptr);
+    }
 
-    if (parser_mode) {
+    if (parser_mode && !no_print_prompt) {
         std::cout << rang::style::italic << rang::fg::green
                   << "Please look for graph*.png, for outputted abstract "
                      "syntax trees !"
