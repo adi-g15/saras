@@ -13,6 +13,16 @@ A -> Aditya Gupta
 
 S -> Salman
 
+### Building
+
+First install `cmake` (to build C++ project) & `llvm` (IR to machine code)
+
+```sh
+cmake -B build
+cmake --build build
+```
+
+### Use
 
 ```
 ./build/saras --help
