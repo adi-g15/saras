@@ -1,4 +1,7 @@
 #include "lexer.hpp"
+#include "assert.hpp"
+#include "ast.hpp"
+#include "interpreter.hpp"
 #include "tokens.hpp"
 #include "utf8.hpp"
 #include <algorithm>
@@ -6,10 +9,8 @@
 #include <cstdio>
 #include <variant>
 
-#ifdef DEBUG
 #include <iostream>
 #include <tabulate/table.hpp>
-#endif
 
 using std::holds_alternative;
 
@@ -75,8 +76,7 @@ Token get_next_token() {
     return current;
 }
 
-#ifdef DEBUG
-void _DEBUG_read_tokens() {
+void dump_all_tokens() {
     Token t = TOK_OTHER{' '};
 
     using namespace tabulate;
@@ -125,4 +125,3 @@ void _DEBUG_read_tokens() {
         .font_color(Color::white);
     std::cout << table << std::endl;
 }
-#endif

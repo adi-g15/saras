@@ -36,12 +36,7 @@ struct VariableAST : public ExprAST {
 };
 
 static const std::map<utf8::_char, int> OPERATOR_PRECENDENCE_TABLE = {
-    {'<', 5},
-    {'+', 10},
-    {'-', 10},
-    {'*', 20},
-    {'/', 20}
-};
+    {'<', 5}, {'>', 5}, {'+', 10}, {'-', 10}, {'*', 20}, {'/', 20}};
 
 // Binary Expressions
 struct BinaryExprAST : public ExprAST {
@@ -53,11 +48,22 @@ struct BinaryExprAST : public ExprAST {
         : lhs(std::move(lhs)), opr(opr), rhs(std::move(rhs)) {}
 };
 
+// Expression class for if/then/else
+struct IfExprAST : public ExprAST {
+    Ptr<ExprAST> condition, then_, else_;
+
+    llvm::Value *codegen();
+    IfExprAST(Ptr<ExprAST> condition, Ptr<ExprAST> then_, Ptr<ExprAST> else_)
+        : condition(std::move(condition)), then_(std::move(then_)),
+          else_(std::move(else_)) {}
+};
+
 struct BlockAST : public ExprAST {
     const vector<Ptr<ExprAST>> expressions;
 
     llvm::Value *codegen();
-    virtual llvm::Value *codegen(llvm::Function*);
+    virtual llvm::Value *codegen(llvm::Function *func);
+
     BlockAST(vector<Ptr<ExprAST>> expressions)
         : expressions(std::move(expressions)) {}
 };
@@ -116,8 +122,9 @@ Ptr<ExprAST> parseParenExpr();
 Ptr<ExprAST> parseIdentifierAndCalls();
 
 Ptr<ExprAST> parsePrimaryExpression();
-
 Ptr<ExprAST> parseBinaryHelperFn(Ptr<ExprAST> lhs, int min_precedence);
+
+Ptr<ExprAST> parseIfExpr();
 
 Ptr<FunctionPrototypeAST> parsePrototypeExpr();
 Ptr<FunctionAST> parseFunctionExpr();

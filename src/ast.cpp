@@ -14,6 +14,7 @@
 #include <llvm/IR/Function.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/InstrTypes.h>
+#include <llvm/IR/Instructions.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Type.h>
@@ -26,7 +27,8 @@
 #include <variant>
 #include <vector>
 
-using std::holds_alternative;
+using llvm::BasicBlock;
+using std::holds_alternative, std::make_unique;
 
 extern Token CurrentToken;
 
@@ -65,8 +67,7 @@ static std::map<utf8::string, llvm::Value *> NamedValues;
 Ptr<NumberAST> parseNumberExpr() {
     debug_assert<__LINE__>(holds_alternative<TOK_NUMBER>(CurrentToken));
 
-    auto expr =
-        std::make_unique<NumberAST>(std::get<TOK_NUMBER>(CurrentToken).val);
+    auto expr = make_unique<NumberAST>(std::get<TOK_NUMBER>(CurrentToken).val);
 
     CurrentToken = get_next_token();
 
@@ -92,7 +93,7 @@ Ptr<ExprAST> parseIdentifierAndCalls() {
                                         asked for next token, AND ALSO
                                         using/comparing it, that is lookahead*/
     if (CurrentToken /*lookahead*/ != '(')
-        return std::make_unique<VariableAST>(
+        return make_unique<VariableAST>(
             std::get<TOK_IDENTIFIER>(identifier).identifier_str);
 
     CurrentToken = get_next_token(); // eats '(' (eat means to 'forget'
@@ -119,7 +120,7 @@ Ptr<ExprAST> parseIdentifierAndCalls() {
 
     CurrentToken = get_next_token(); // eat ')', ie. forget it
 
-    return std::make_unique<FunctionCallAST>(
+    return make_unique<FunctionCallAST>(
         std::get<TOK_IDENTIFIER>(identifier).identifier_str, std::move(args));
 }
 
@@ -149,12 +150,13 @@ Ptr<ExprAST> parseParenExpr() {
 }
 
 /**
- * @expects: CurrentToken is TOK_IDENTIFIER, TOK_NUMBER or '('
+ * @expects: CurrentToken is TOK_IDENTIFIER, TOK_KEYWORDS, TOK_NUMBER or '('
  */
 Ptr<ExprAST> parsePrimaryExpression() {
     debug_assert<__LINE__>(CurrentToken == '(' ||
                            holds_alternative<TOK_IDENTIFIER>(CurrentToken) ||
-                           holds_alternative<TOK_NUMBER>(CurrentToken));
+                           holds_alternative<TOK_NUMBER>(CurrentToken) ||
+                           holds_alternative<TOK_KEYWORDS>(CurrentToken));
 
     if (CurrentToken == ';')
         return nullptr; // ignore ';'
@@ -165,10 +167,15 @@ Ptr<ExprAST> parsePrimaryExpression() {
         return parseNumberExpr();
     } else if (holds_alternative<TOK_IDENTIFIER>(CurrentToken)) {
         return parseIdentifierAndCalls();
-    } else {
-        return LogError("Wrong token passed that can't be handled by "
-                        "parsePrimaryExpression()");
+    } else if (holds_alternative<TOK_KEYWORDS>(CurrentToken)) {
+        auto &keyword = std::get<TOK_KEYWORDS>(CurrentToken).str;
+
+        if (keyword == "if" || keyword == "यदि") {
+            return parseIfExpr();
+        }
     }
+    return LogError("Wrong token passed that can't be handled by "
+                    "parsePrimaryExpression()");
 }
 
 /**
@@ -250,8 +257,8 @@ Ptr<ExprAST> parseBinaryHelperFn(Ptr<ExprAST> lhs, int min_precedence) {
         if (!rhs)
             return nullptr;
 
-        lhs = std::make_unique<BinaryExprAST>(std::move(lhs), binary_opr,
-                                              std::move(rhs));
+        lhs = make_unique<BinaryExprAST>(std::move(lhs), binary_opr,
+                                         std::move(rhs));
         if (holds_alternative<TOK_OTHER>(lookahead)) {
             // modify binary_opr to current token's character value, else it
             // will become an infinite loop
@@ -262,6 +269,62 @@ Ptr<ExprAST> parseBinaryHelperFn(Ptr<ExprAST> lhs, int min_precedence) {
     }
 
     return lhs;
+}
+
+/**
+ * @expects: CurrentToken == "if"
+ **/
+Ptr<ExprAST> parseIfExpr() {
+    debug_assert<__LINE__>(holds_alternative<TOK_KEYWORDS>(CurrentToken));
+
+    auto is_tok_if = []() {
+        return holds_alternative<TOK_KEYWORDS>(CurrentToken) &&
+               (std::get<TOK_KEYWORDS>(CurrentToken).str == "if" ||
+                std::get<TOK_KEYWORDS>(CurrentToken).str == "यदि");
+    };
+    auto is_tok_then = []() {
+        return holds_alternative<TOK_KEYWORDS>(CurrentToken) &&
+               (std::get<TOK_KEYWORDS>(CurrentToken).str == "then" ||
+                std::get<TOK_KEYWORDS>(CurrentToken).str == "तब");
+    };
+    auto is_tok_else = []() {
+        return holds_alternative<TOK_KEYWORDS>(CurrentToken) &&
+               (std::get<TOK_KEYWORDS>(CurrentToken).str == "else" ||
+                std::get<TOK_KEYWORDS>(CurrentToken).str == "अथवा");
+    };
+
+    if (!is_tok_if()) {
+        return LogError(
+            "Expected \"if\" (or equivalent keyword in hindi) expression");
+    }
+
+    CurrentToken = get_next_token(); // eat 'if' token
+
+    auto condition = parseExpression(); // can also parse with or without
+                                        // parenthesis (primary expr)
+
+    if (!condition)
+        return nullptr;
+
+    if (!is_tok_then())
+        return LogError("Expected \"then\" or equivalent keyword");
+
+    CurrentToken = get_next_token(); // eat 'then'
+
+    auto then_block = parseBlock();
+
+    if (!is_tok_else())
+        return LogError("Expected \"else\" or equivalent keyword");
+
+    CurrentToken = get_next_token();    // eat 'else'
+
+    auto else_block = parseBlock();
+
+    if (!then_block || !else_block)
+        return nullptr;
+
+    return make_unique<IfExprAST>(std::move(condition), std::move(then_block),
+                                  std::move(else_block));
 }
 
 /**
@@ -311,7 +374,7 @@ Ptr<FunctionPrototypeAST> parsePrototypeExpr() {
     }
 
     CurrentToken = get_next_token(); // eat ')'
-    return std::make_unique<FunctionPrototypeAST>(
+    return make_unique<FunctionPrototypeAST>(
         std::get<TOK_IDENTIFIER>(function_name).identifier_str, arg_names);
 }
 
@@ -351,7 +414,7 @@ Ptr<BlockAST> parseBlock() {
 
         expressions.push_back(std::move(expr));
     }
-    return std::make_unique<BlockAST>(std::move(expressions));
+    return make_unique<BlockAST>(std::move(expressions));
 }
 
 /**
@@ -372,7 +435,7 @@ Ptr<FunctionAST> parseFunctionExpr() {
     if (!prototype || !body)
         return nullptr;
 
-    return std::make_unique<FunctionAST>(std::move(prototype), std::move(body));
+    return make_unique<FunctionAST>(std::move(prototype), std::move(body));
 }
 
 /**
@@ -409,8 +472,8 @@ Ptr<FunctionAST> parseTopLevelExpr() {
     if (!expr)
         return nullptr;
 
-    return std::make_unique<FunctionAST>(
-        std::make_unique<FunctionPrototypeAST>("", std::vector<utf8::string>()),
+    return make_unique<FunctionAST>(
+        make_unique<FunctionPrototypeAST>("", std::vector<utf8::string>()),
         std::move(expr));
 }
 
@@ -450,10 +513,11 @@ llvm::Value *BinaryExprAST::codegen() {
         return LBuilder->CreateFDiv(lhs_codegen, rhs_codegen, "divtmp");
     } else if (opr == '<') {
         // My way:
-        // return Builder.CreateFCmp(llvm::CmpInst::FCMP_OLT, lhs_codegen,
-        // rhs_codegen); LLVM way:
-        auto L = LBuilder->CreateFCmpULT(lhs_codegen, rhs_codegen, "cmptmp");
+        auto L = LBuilder->CreateFCmpULT(lhs_codegen, rhs_codegen, "cmplttmp");
         // converting 0/1 (bool treated as int), to double
+        return LBuilder->CreateUIToFP(L, llvm::Type::getDoubleTy(*LContext));
+    } else if (opr == '>') {
+        auto L = LBuilder->CreateFCmpUGT(lhs_codegen, rhs_codegen, "cmpgttmp");
         return LBuilder->CreateUIToFP(L, llvm::Type::getDoubleTy(*LContext));
     } else {
         throw std::logic_error(
@@ -462,8 +526,99 @@ llvm::Value *BinaryExprAST::codegen() {
     }
 }
 
+llvm::Value *IfExprAST::codegen() {
+    auto cond_ir = condition->codegen();
+    if (!cond_ir)
+        return nullptr;
+
+    // "ONE" -> Ordered and not equal
+    // Create a (condition != 0.0) instruction, ie. true for not zero, ie. true
+    // for 1, ie. true for true ;D
+    LBuilder->CreateFCmpONE(
+        /*lhs*/ cond_ir,
+        /*rhs*/ llvm::ConstantFP::get(*LContext, llvm::APFloat(0.0)),
+        "if_condn");
+
+    // gets the current Function object that is being built. It gets this by
+    // asking the builder for the current BasicBlock, and asking that block for
+    // its “parent” (the function it is currently embedded into)
+    auto parent_func = LBuilder->GetInsertBlock()->getParent();
+
+    /** If the Parent parameter (3rd param) is specified, the basic block is
+     *automatically inserted at either the end of the function (if InsertBefore
+     *is 0), or before the specified basic block. */
+    auto then_bb = BasicBlock::Create(*LContext, "then_bb", parent_func);
+    auto else_bb = BasicBlock::Create(*LContext, "else_bb");
+    auto cont_bb = BasicBlock::Create(*LContext, "continued_bb");
+
+    // create 'conditional' br, ie. jump to then block if condition true, or
+    // else block
+    LBuilder->CreateCondBr(cond_ir, then_bb, else_bb);
+
+    // add code to the end of then_bb, ie. add the return
+    LBuilder->SetInsertPoint(then_bb);
+
+    // Now actual add the IR for then and else blocks
+    auto then_ir = then_->codegen();
+
+    if (!then_ir)
+        return nullptr;
+
+    // creates uncondition 'br' label
+    LBuilder->CreateBr(cont_bb);
+
+    /**
+     * Why then, are we getting the current block when we just set it to ThenBB
+     * 5 lines above? The problem is that the “Then” expression may actually
+     * itself change the block that the Builder is emitting into if, for
+     * example, it contains a nested “if/then/else” expression. Because calling
+     * codegen() recursively could arbitrarily change the notion of the current
+     * block, we are required to get an up-to-date value for code that will set
+     * up the Phi node.
+     */
+    then_bb =
+        LBuilder->GetInsertBlock(); // codegen of 'Then' can change the current
+                                    // block, update ThenBB for the PHI.
+
+    // push else block to parent function
+    parent_func->getBasicBlockList().push_back(else_bb);
+    LBuilder->SetInsertPoint(else_bb);
+
+    auto else_ir = else_->codegen();
+    if (!else_ir)
+        return nullptr;
+
+    LBuilder->CreateBr(cont_bb);
+
+    // codegen of 'Else' could have changed the current block, update ElseBB for
+    // the PHI.
+    else_bb = LBuilder->GetInsertBlock();
+    parent_func->getBasicBlockList().push_back(cont_bb);
+    LBuilder->SetInsertPoint(cont_bb);
+    llvm::PHINode *phi_node =
+        LBuilder->CreatePHI(llvm::Type::getDoubleTy(*LContext), 2, "cont_phi");
+
+    phi_node->addIncoming(then_ir, then_bb);
+    phi_node->addIncoming(else_ir, else_bb);
+
+    return phi_node;
+}
+
 llvm::Value *BlockAST::codegen() {
-    LogError("BlockAST::codegen called without llvm function pointer");
+    auto *block = LBuilder->GetInsertBlock();
+
+    if (!block) {
+        LogErrorP(
+            "BlockAST::codegen requires a function, failed to autodetect");
+        return nullptr;
+    }
+
+    auto *func = block->getParent();
+
+    if (func != nullptr)
+        return codegen(func);
+
+    LogErrorP("BlockAST::codegen requires a function, failed to autodetect");
     return nullptr;
 }
 
@@ -471,15 +626,17 @@ llvm::Value *BlockAST::codegen(llvm::Function *func) {
     // Create a basic block to start insertion into
     // > Basic blocks in LLVM are an important part of functions that define the
     // Control Flow Graph
-    auto *block = llvm::BasicBlock::Create(*LContext, "entry", func);
+    auto *block = BasicBlock::Create(*LContext, "exit", func);
 
     // tells the builder that new instructions should be inserted into the end
     // of the new basic block
     LBuilder->SetInsertPoint(block);
+    for (auto i = 0; i < (expressions.size() - 1); ++i) {
+        expressions[i]->codegen();
+    }
 
-    // TODO: Add all instructions, currently just returning first expression's
-    // codegen
-    return expressions[0]->codegen();
+    // Returning return value, ie. of last expression
+    return expressions.back()->codegen();
 }
 
 llvm::Value *FunctionCallAST::codegen() {
@@ -567,6 +724,8 @@ llvm::Function *FunctionAST::codegen() {
     // it out) so that they’re accessible to VariableExprAST nodes.
     NamedValues.clear();
     for (auto &param : func->args()) {
+        std::cout << "Inserting variable: " << param.getName().str()
+                  << std::endl;
         NamedValues.insert_or_assign(param.getName().str(), &param);
     }
 

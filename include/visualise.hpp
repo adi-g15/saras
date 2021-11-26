@@ -11,7 +11,7 @@ template <typename ExprPtrType> bool is_same_ptr(ExprAST *e) {
     return dynamic_cast<ExprPtrType>(e);
 }
 
-void recursive_ast(ExprAST *e, int &max_idx, std::ofstream &fout) {
+static void recursive_ast(ExprAST *e, int &max_idx, std::ofstream &fout) {
     ++max_idx;
 
     if (is_same_ptr<BinaryExprAST *>(e)) {
@@ -123,7 +123,7 @@ void recursive_ast(ExprAST *e, int &max_idx, std::ofstream &fout) {
     }
 }
 
-void visualise_ast(ExprAST *root) {
+static void visualise_ast(ExprAST *root) {
     static int i = 0;
     if (!root)
         return;

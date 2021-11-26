@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (program["--lexer"] == true) {
-        _DEBUG_read_tokens();
+        dump_all_tokens();
         return 0;
     } else if (program["--parser"] == true) {
         run_interpreter(true);
