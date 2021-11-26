@@ -62,7 +62,7 @@ struct BlockAST : public ExprAST {
     const vector<Ptr<ExprAST>> expressions;
 
     llvm::Value *codegen();
-    virtual llvm::Value *codegen(llvm::Function *func);
+    virtual llvm::Value *codegen(llvm::Function *func, bool is_if_else = false);
 
     BlockAST(vector<Ptr<ExprAST>> expressions)
         : expressions(std::move(expressions)) {}

@@ -316,7 +316,7 @@ Ptr<ExprAST> parseIfExpr() {
     if (!is_tok_else())
         return LogError("Expected \"else\" or equivalent keyword");
 
-    CurrentToken = get_next_token();    // eat 'else'
+    CurrentToken = get_next_token(); // eat 'else'
 
     auto else_block = parseBlock();
 
@@ -530,13 +530,13 @@ llvm::Value *IfExprAST::codegen() {
     auto cond_ir = condition->codegen();
     if (!cond_ir)
         return nullptr;
-
+    // COME HERE
     // "ONE" -> Ordered and not equal
     // Create a (condition != 0.0) instruction, ie. true for not zero, ie. true
     // for 1, ie. true for true ;D
-    LBuilder->CreateFCmpONE(
+    cond_ir = LBuilder->CreateFCmpONE(
         /*lhs*/ cond_ir,
-        /*rhs*/ llvm::ConstantFP::get(*LContext, llvm::APFloat(0.0)),
+        /*rcond_ir*/ llvm::ConstantFP::get(*LContext, llvm::APFloat(0.0)),
         "if_condn");
 
     // gets the current Function object that is being built. It gets this by
@@ -616,23 +616,30 @@ llvm::Value *BlockAST::codegen() {
     auto *func = block->getParent();
 
     if (func != nullptr)
-        return codegen(func);
+        return codegen(func, /*is_if_else*/ true);
 
     LogErrorP("BlockAST::codegen requires a function, failed to autodetect");
     return nullptr;
 }
 
-llvm::Value *BlockAST::codegen(llvm::Function *func) {
-    // Create a basic block to start insertion into
-    // > Basic blocks in LLVM are an important part of functions that define the
-    // Control Flow Graph
-    auto *block = BasicBlock::Create(*LContext, "exit", func);
+llvm::Value *BlockAST::codegen(llvm::Function *func, bool is_if_else) {
+    // NOTE: @adi Temporary Solution, try to implement multi expression if
+    // blocks
+    if (!is_if_else) {
+        // Create a basic block to start insertion into
+        // > Basic blocks in LLVM are an important part of functions that define
+        // the Control Flow Graph
+        auto *block = BasicBlock::Create(*LContext, "entry", func);
 
-    // tells the builder that new instructions should be inserted into the end
-    // of the new basic block
-    LBuilder->SetInsertPoint(block);
-    for (auto i = 0; i < (expressions.size() - 1); ++i) {
-        expressions[i]->codegen();
+        LBuilder->SetInsertPoint(block);
+
+        if (expressions.size() > 1) {
+            // tells the builder that new instructions should be inserted into
+            // the end of the new basic block
+            for (auto i = 0; i < (expressions.size() - 1); ++i) {
+                expressions[i]->codegen();
+            }
+        }
     }
 
     // Returning return value, ie. of last expression

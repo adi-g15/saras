@@ -45,9 +45,15 @@ static void recursive_ast(ExprAST *e, int &max_idx, std::ofstream &fout) {
     } else if (is_same_ptr<BlockAST *>(e)) {
         auto b = dynamic_cast<BlockAST *>(e);
 
+        if (b->expressions.size() == 1) {
+            max_idx--; // to negate effect of ++ in next call, since i want it
+                       // to have current max_id
+            return recursive_ast(b->expressions.back().get(), max_idx, fout);
+        }
+
         fout << "idx" + std::to_string(max_idx) << ";\n";
         fout << "idx" + std::to_string(max_idx) << "[label=\""
-             << "CodeBlock "
+             << "Block"
              << "\"] ;\n";
 
         fout << "idx" + std::to_string(max_idx) << " -- idx"
@@ -116,7 +122,27 @@ static void recursive_ast(ExprAST *e, int &max_idx, std::ofstream &fout) {
         fout << "idx" + std::to_string(parent_node) << " -- "
              << "idx" + std::to_string(max_idx + 1) << ";\n";
         recursive_ast(f->block.get(), max_idx, fout);
+    } else if (is_same_ptr<IfExprAST *>(e)) {
+        auto f = dynamic_cast<IfExprAST *>(e);
 
+        fout << "idx" + std::to_string(max_idx) << ";\n";
+        fout << "idx" + std::to_string(max_idx) << "[label=\""
+             << "If"
+             << "\"] ;\n";
+        fout << "idx" + std::to_string(max_idx) << " -- "
+             << "idx" + std::to_string(max_idx + 1) << ";\n";
+
+        auto parent_node = max_idx;
+
+        recursive_ast(f->condition.get(), max_idx, fout);
+
+        fout << "idx" + std::to_string(parent_node) << " -- "
+             << "idx" + std::to_string(max_idx + 1) << ";\n";
+        recursive_ast(f->then_.get(), max_idx, fout);
+
+        fout << "idx" + std::to_string(parent_node) << " -- "
+             << "idx" + std::to_string(max_idx + 1) << ";\n";
+        recursive_ast(f->else_.get(), max_idx, fout);
     } else {
         fout << "idx" + std::to_string(max_idx) << ";\n";
         fout << "idx" + std::to_string(max_idx) << "[label=\"ExprAST\"] ;\n";
