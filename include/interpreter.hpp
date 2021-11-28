@@ -12,8 +12,4 @@
 
 extern Token CurrentToken;
 
-Ptr<FunctionAST> HandleFunctionDefinition(bool print_ir = true);
-Ptr<FunctionPrototypeAST> HandleExtern(bool print_ir = true);
-Ptr<FunctionAST> HandleTopLevelExpression(bool print_ir = true);
-
 void run_interpreter(std::unordered_set<std::string> options = {});

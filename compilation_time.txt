@@ -1,0 +1,4 @@
+❯ time cmake --build build
+[6/6] Linking CXX executable saras
+cmake --build build  40.40s user 1.63s system 393% cpu 10.671 total
+

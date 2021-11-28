@@ -11,6 +11,8 @@
 #include <fstream>
 #include <functional>
 #include <iostream>
+#include <llvm/Support/Error.h>
+#include <llvm/Support/raw_ostream.h>
 #include <variant>
 
 Token CurrentToken;
@@ -52,14 +54,6 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    // Initialise interpreter
-    // Open a new context and module.
-    LContext = std::make_unique<llvm::LLVMContext>();
-    LModule = std::make_unique<llvm::Module>("SARAS Interpreter", *LContext);
-
-    // Create a new builder for the module.
-    LBuilder = std::make_unique<llvm::IRBuilder<>>(*LContext);
-
     if (result.count("lexer")) {
         dump_all_tokens();
         return 0;
@@ -84,7 +78,7 @@ int main(int argc, char *argv[]) {
 
         auto source_code = std::ifstream(filename);
         input = &source_code;
-        run_interpreter({"no-print-ir", "no-print-prompt"});
+        run_interpreter({"no-print-ir", "no-print-prompt", "compilation-mode"});
 
         auto *target_machine = InitialisationCompiler();
         return CompileToObjectFile(object_filename, target_machine);
@@ -102,6 +96,10 @@ int main(int argc, char *argv[]) {
     } catch (std::exception &e) {
         std::cerr << rang::style::bold << rang::fg::red
                   << "ERROR: " << rang::style::reset << e.what() << std::endl;
+    } catch(llvm::Error& e) {
+        std::cerr << "ERROR: " << std::endl;
+        llvm::errs() << e;
+        // std::cerr << e << std::endl;
     }
 
     return 0;
