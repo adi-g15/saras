@@ -3,6 +3,9 @@
 
 In development, a hobby project only
 
+> JIT is broken right now, 'jit' branch par code hai uska
+> Compiler work kar raha hai
+
 S -> Sai
 
 A -> Abhay

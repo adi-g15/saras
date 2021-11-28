@@ -3,10 +3,11 @@
 #include "lexer.hpp"
 #include "tokens.hpp"
 #include <iostream>
-#include <rang.hpp>
 #include <stdexcept>
 #include <string>
 #include <variant>
+
+#include <rang.hpp>
 
 extern Token CurrentToken;
 

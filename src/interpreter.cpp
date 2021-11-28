@@ -3,10 +3,9 @@
 #include "lexer.hpp"
 #include "utf8.hpp"
 #include "visualise.hpp"
-#include <cstdio>
 #include <exception>
 #include <iostream>
-#include <istream>
+
 #include <llvm/Support/raw_ostream.h>
 #include <rang.hpp>
 

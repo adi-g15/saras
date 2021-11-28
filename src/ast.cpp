@@ -1,12 +1,19 @@
 #include "ast.hpp"
 #include "assert.hpp"
-#include "lexer.hpp"
 #include "rang.hpp"
 #include "tokens.hpp"
 #include "utf8.hpp"
 #include "util.hpp"
+
 #include <algorithm>
 #include <iostream>
+#include <map>
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <variant>
+#include <vector>
+
 #include <llvm/ADT/APFloat.h>
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Constants.h>
@@ -20,12 +27,6 @@
 #include <llvm/IR/Type.h>
 #include <llvm/IR/Value.h>
 #include <llvm/IR/Verifier.h>
-#include <map>
-#include <memory>
-#include <stdexcept>
-#include <string>
-#include <variant>
-#include <vector>
 
 using llvm::BasicBlock;
 using std::holds_alternative, std::make_unique;

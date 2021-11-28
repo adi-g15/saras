@@ -1,0 +1,8 @@
+[1/6] Building CXX object CMakeFiles/saras.dir/src/interpreter.cpp.o
+[2/6] Building CXX object CMakeFiles/saras.dir/src/compiler.cpp.o
+[3/6] Building CXX object CMakeFiles/saras.dir/src/lexer.cpp.o
+[4/6] Building CXX object CMakeFiles/saras.dir/src/ast.cpp.o
+[5/6] Building CXX object CMakeFiles/saras.dir/src/main.cpp.o
+[6/6] Linking CXX executable saras
+cmake --build build > compilation_time.txt  34.63s user 1.35s system 367% cpu 9.781 total
+

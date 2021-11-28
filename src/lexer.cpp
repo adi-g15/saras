@@ -1,7 +1,5 @@
 #include "lexer.hpp"
 #include "assert.hpp"
-#include "ast.hpp"
-#include "interpreter.hpp"
 #include "tokens.hpp"
 #include "utf8.hpp"
 #include "util.hpp"

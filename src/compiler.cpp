@@ -1,26 +1,23 @@
 #include "compiler.hpp"
-
 #include "util.hpp"
 #include <exception>
 #include <iostream>
+#include <stdexcept>
+#include <string>
+
 #include <llvm/ADT/Optional.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/LegacyPassManager.h>
 #include <llvm/IR/Module.h>
 #include <llvm/Support/CodeGen.h>
-#include <llvm/Support/raw_ostream.h>
-#include <stdexcept>
-#include <string>
-
 #include <llvm/Support/Host.h>
 #include <llvm/Support/TargetRegistry.h>
 #include <llvm/Support/TargetSelect.h>
+#include <llvm/Support/raw_ostream.h>
 #include <llvm/Target/TargetMachine.h>
 #include <llvm/Target/TargetOptions.h>
 #include <rang.hpp>
-#include <string_view>
-#include <system_error>
 
 extern Ptr<llvm::Module> LModule;
 
@@ -60,7 +57,7 @@ llvm::TargetMachine *InitialisationCompiler() {
     return TargetMachine;
 }
 
-int CompileToObjectFile(std::string_view filename,
+int CompileToObjectFile(const std::string &filename,
                         llvm::TargetMachine *target_machine) {
     std::error_code err_code;
 

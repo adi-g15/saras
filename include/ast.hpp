@@ -3,11 +3,12 @@
 #include "tokens.hpp"
 #include "utf8.hpp"
 #include "util.hpp"
-#include <llvm/IR/Function.h>
-#include <llvm/IR/Value.h>
 #include <map>
 #include <memory>
 #include <vector>
+
+#include <llvm/IR/Function.h>
+#include <llvm/IR/Value.h>
 
 using std::vector;
 
