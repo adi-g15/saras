@@ -27,8 +27,9 @@ Token get_next_token() {
 
     /* [A-Z|a-z] */
     if (utf8::isalpha(LastChar) || utf8::is_not_ascii(LastChar)) {
-        /* [A-Z|a-z][A-Z|a-z|0-9]+ */
-        while (utf8::isalnum(LastChar) || utf8::is_not_ascii(LastChar)) {
+        /* [A-Z|a-z][A-Z|a-z|0-9|_]+ */
+        while (utf8::isalnum(LastChar) || utf8::is_not_ascii(LastChar) ||
+               LastChar == '_') {
             data_str += LastChar;
             LastChar = utf8::get_character(*input);
         }

@@ -6,6 +6,8 @@ In development, a hobby project only
 > JIT is broken right now, 'jit' branch par code hai uska
 > Compiler work kar raha hai
 
+To actually try, or see usage with sample programs, [go to the programs/ directory](programs/) after building :)
+
 S -> Sai
 
 A -> Abhay
@@ -23,6 +25,12 @@ First install `cmake` (to build C++ project) & `llvm` (IR to machine code)
 ```sh
 cmake -B build
 cmake --build build
+```
+
+### Install
+
+```sh
+cmake --install build
 ```
 
 ### Use
