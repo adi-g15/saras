@@ -2,9 +2,6 @@
 
 #include "util.hpp"
 #include <array>
-#include <cctype>
-#include <cstdint>
-#include <cstdio>
 #include <iostream>
 #include <string>
 #include <variant>
@@ -52,20 +49,23 @@ inline bool isdigit(const _char &c) {
 
 inline bool is_eof(const _char &c) { return holds_alternative<monostate>(c); }
 
-// Reference: There are some implicit properties of the bytes that can let us
-// know if it is ascii or more digits of some utf-8 character follow
-// https://en.wikipedia.org/wiki/UTF-8#Encoding
-// read utf-8 character from stdin
-// static, else it WILL cause multiple definitions linker error (even with
-// #pragma once)
-static _char get_character() {
-    int tmp = getchar();
+/**
+ * @ref There are some implicit properties of the bytes that can let us
+ * know if it is ascii or more digits of some utf-8 character follow
+ * https://en.wikipedia.org/wiki/UTF-8#Encoding
+ * read utf-8 character from stdin
+ * static, else it WILL cause multiple definitions linker error (even with
+ * #pragma once)
+ */
+static _char get_character(std::istream &in = std::cin) {
+    in >> std::noskipws;
 
-    if (tmp == EOF) {
+    uint8_t t;
+    in >> t;
+
+    if (in.eof()) {
         return monostate{};
     }
-
-    uint8_t t = (uint8_t)tmp;
 
     if ((t & (1 << 7)) == 0) { /* See table on wikipedia, for 1 byte utf-8
                                   (ascii), the 8th bit is unset */
@@ -75,7 +75,7 @@ static _char get_character() {
 
         array<uint8_t, 2> c;
         c[0] = t;
-        c[1] = getchar();
+        in >> c[1];
 
         return c;
 
@@ -84,8 +84,8 @@ static _char get_character() {
 
         array<uint8_t, 3> c;
         c[0] = t;
-        c[1] = getchar();
-        c[2] = getchar();
+        in >> c[1];
+        in >> c[2];
 
         return c;
 
@@ -94,9 +94,9 @@ static _char get_character() {
 
         array<uint8_t, 4> c;
         c[0] = t;
-        c[1] = getchar();
-        c[2] = getchar();
-        c[3] = getchar();
+        in >> c[1];
+        in >> c[2];
+        in >> c[3];
 
         return c;
     }

@@ -24,7 +24,7 @@ Token get_next_token() {
 
     /* Ignore all whitespaces (also true for first call to this function) */
     while (utf8::isspace(LastChar)) {
-        LastChar = utf8::get_character();
+        LastChar = utf8::get_character(*input);
     }
 
     /* [A-Z|a-z] */
@@ -32,7 +32,7 @@ Token get_next_token() {
         /* [A-Z|a-z][A-Z|a-z|0-9]+ */
         while (utf8::isalnum(LastChar) || utf8::is_not_ascii(LastChar)) {
             data_str += LastChar;
-            LastChar = utf8::get_character();
+            LastChar = utf8::get_character(*input);
         }
 
         if (data_str == "fn" || data_str == "प्रकर") {
@@ -50,10 +50,10 @@ Token get_next_token() {
         data_str.clear();
         data_str += LastChar;
 
-        LastChar = utf8::get_character();
+        LastChar = utf8::get_character(*input);
         while (utf8::isdigit(LastChar) || (LastChar == '.')) {
             data_str += LastChar;
-            LastChar = utf8::get_character();
+            LastChar = utf8::get_character(*input);
         }
 
         return TOK_NUMBER{std::stod(data_str)};
@@ -62,7 +62,7 @@ Token get_next_token() {
 
         while (!utf8::is_eof(LastChar) && LastChar != '\n' &&
                LastChar != '\r') {
-            LastChar = utf8::get_character();
+            LastChar = utf8::get_character(*input);
         }
 
         // Case if it's EOF or not is handled by next call
@@ -75,7 +75,7 @@ Token get_next_token() {
 
     // Now advance lexer pointer, next call should use a different value of
     // LastChar
-    LastChar = utf8::get_character();
+    LastChar = utf8::get_character(*input);
 
     return current;
 }

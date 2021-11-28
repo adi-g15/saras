@@ -5,13 +5,12 @@
 #include "rang.hpp"
 #include "tokens.hpp"
 #include "visualise.hpp"
-#include <argparse/argparse.hpp>
+#include <cxxopts.hpp>
 #include <exception>
 #include <filesystem>
 #include <fstream>
 #include <functional>
 #include <iostream>
-#include <istream>
 #include <variant>
 
 Token CurrentToken;
@@ -19,37 +18,38 @@ extern Ptr<llvm::LLVMContext> LContext;
 extern Ptr<llvm::IRBuilder<>> LBuilder;
 extern Ptr<llvm::Module> LModule;
 
-std::basic_istream<char> *input = &std::cin;    // source code file, or std::cin
-
-using argparse::ArgumentParser;
+std::basic_istream<char> *input = &std::cin; // source code file, or std::cin
 
 int main(int argc, char *argv[]) {
-    ArgumentParser program("SARAS");
+    cxxopts::Options options("saras", "A compiler frontend");
 
-    program.add_argument("-l", "--lexer")
-        .help("Stop at Lexer, only print Tokens read")
-        .default_value(false);
-    program.add_argument("-p", "--parser")
-        .help("Stop at Parser stage, saves Abstract Syntax Tree in graph*.png "
-              "files")
-        .default_value(false);
-    program.add_argument("-ir")
-        .help(
-            "Stop at IR stage, prints LLVM Intermediate Representation for all "
-            "expressions and functions")
-        .default_value(false);
-    program.add_argument("--no-print-ir")
-        .help("Don't print IR in Interpreter mode (default mode)")
-        .default_value(false);
-    program.add_argument("-c", "--compile").help("Compile provided filename");
+    // clang-format off
+    options.add_options()
+        ("l,lexer", "Stop at Lexer, only print Tokens read")
+        ("p,parse", "Stop at Parser stage, saves Abstract Syntax Tree in "
+                     "graph*.png files")
+        ("ir", "Stop at IR stage, prints LLVM Intermediate Representation for "
+                "all expressions and functions")
+        ("no-print-ir", "Don't print IR in Interpreter mode (default mode)")
+        ("c,compile", "Compile provided filename", cxxopts::value<std::string>())
+        ("h,help", "Print usage");
+    // clang-format on
 
+    options.allow_unrecognised_options();
+
+    cxxopts::ParseResult result;
     try {
-        program.parse_args(argc, argv);
+        result = options.parse(argc, argv);
     } catch (const std::runtime_error &err) {
         std::cerr << rang::fgB::blue << err.what() << rang::style::reset
                   << std::endl;
-        std::cerr << program;
-        std::exit(1);
+        std::cout << options.help();
+        return 1;
+    }
+
+    if (result.count("help")) {
+        std::cout << options.help() << std::endl;
+        return 0;
     }
 
     // Initialise interpreter
@@ -60,14 +60,15 @@ int main(int argc, char *argv[]) {
     // Create a new builder for the module.
     LBuilder = std::make_unique<llvm::IRBuilder<>>(*LContext);
 
-    if (program["--lexer"] == true) {
+    if (result.count("lexer")) {
         dump_all_tokens();
         return 0;
-    } else if (program["--parser"] == true) {
+    } else if (result.count("parser")) {
         run_interpreter({"parser-mode"});
         return 0;
-    } else if (program.present("--compile")) {
-        if (program.get<std::string>("--compile").empty()) {
+    } else if (result.count("compile")) {
+        auto filename = result["compile"].as<std::string>();
+        if (filename.empty()) {
             std::cerr
                 << rang::style::bold << rang::fg::red
                 << "Error: " << rang::style::reset
@@ -77,11 +78,9 @@ int main(int argc, char *argv[]) {
             return 1;
         }
 
-        auto filename = program.get<std::string>("--compile");
+        // https://stackoverflow.com/a/38463871/12339402
         auto object_filename =
-            std::filesystem::path(filename)
-                .stem()
-                .string(); // https://stackoverflow.com/a/38463871/12339402
+            std::filesystem::path(filename).stem().string() + ".o";
 
         auto source_code = std::ifstream(filename);
         input = &source_code;
@@ -92,17 +91,17 @@ int main(int argc, char *argv[]) {
     }
 
     try {
-        if (program["--no-print-ir"] == true) {
+        if (result.count("--no-print-ir")) {
             run_interpreter({"no-print-ir"});
         } else {
             run_interpreter();
         }
     } catch (std::string &s) {
-        std::cerr << rang::style::bold << rang::fg::red << s
-                  << rang::style::reset << std::endl;
+        std::cerr << rang::style::bold << rang::fg::red
+                  << "ERROR: " << rang::style::reset << s << std::endl;
     } catch (std::exception &e) {
-        std::cerr << rang::style::bold << rang::fg::red << e.what()
-                  << rang::style::reset << std::endl;
+        std::cerr << rang::style::bold << rang::fg::red
+                  << "ERROR: " << rang::style::reset << e.what() << std::endl;
     }
 
     return 0;
