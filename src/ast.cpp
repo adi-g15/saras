@@ -731,8 +731,6 @@ llvm::Function *FunctionAST::codegen() {
     // it out) so that they’re accessible to VariableExprAST nodes.
     NamedValues.clear();
     for (auto &param : func->args()) {
-        std::cout << "Inserting variable: " << param.getName().str()
-                  << std::endl;
         NamedValues.insert_or_assign(param.getName().str(), &param);
     }
 

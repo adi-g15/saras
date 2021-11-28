@@ -84,7 +84,9 @@ void run_interpreter(std::unordered_set<std::string> options) {
     bool EofEncountered = false;
     auto visiter_run = overload{
         [&](TOK_EOF &t) {
-            std::cout << "Acting for EOF" << std::endl;
+            if (parser_mode) {
+                std::cout << "Acting for EOF" << std::endl;
+            }
             EofEncountered = true;
         },
         [&](TOK_EXTERN &t) {
