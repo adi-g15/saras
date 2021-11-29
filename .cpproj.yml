@@ -1,7 +1,7 @@
 project:
-  name:        Kaleidoscope√A
-  description: My First Language Frontend
-  repo_url:    https://github.com/adi-g15/my_first_llvm_frontend
+  name:        SARAS
+  description: A Compiler Frontend for SARAS language
+  repo_url:    https://github.com/adi-g15/saras
   license:     Unlicense
 
 dependencies:
