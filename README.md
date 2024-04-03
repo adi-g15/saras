@@ -1,12 +1,17 @@
 # सारस | SARAS
 ### Started with following [LLVM's tutorial](https://www.llvm.org/docs/tutorial/MyFirstLanguageFrontend/)
 
+> Note: This was tested with `llvm-libs-17.0.5`
+
 In development, a hobby project only
 
 > JIT is broken right now, 'jit' branch par code hai uska
 > Compiler work kar raha hai
 
-To actually try, or see usage with sample programs, [go to the programs/ directory](programs/) after building :)
+To actually try, or see usage with sample programs, see go to
+[Practical Usage section](#practical-usage) after building :)
+
+Meaning of the name 'saras':
 
 S -> Sai
 
