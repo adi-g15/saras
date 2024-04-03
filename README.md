@@ -95,6 +95,35 @@ Generated LLVM IR:
 
 ![Graph](images/ir.png)
 
+# Practical Usage
+
+This language is very limited currently, and doesn't include support for linking
+with the C Runtime to be able to actually run standalone program, ie. basically
+it does not support writing a 'main' function, or a start entry.
+
+So, as of now `saras` can be used to write small functions, and then be used as
+a library to use with a C/C++/Rust program etc., which should define the
+entrypoint.
+
+Look for files inside the `programs/` directory to look for examples.
+
+Currently we have a caller code in C, which will call the virhanka (aka.
+factorial) function defined in 'saras' language syntax.
+Currently it has saras files such as 'virhanka.saras', 'विरहंक.सारस' etc..
+
+An example set of commands to run these programs:
+
+```
+# First compile saras code to object code
+./build/saras -c programs/विरहंक.सारस
+
+# Then compile and link our saras code with caller code written in C
+g++ programs/caller_code_hindi.cpp विरहंक.o
+
+# Finally run the program
+./a.out
+```
+
 ### Todo
 
 * https://stackoverflow.com/questions/35526075/llvm-how-to-implement-print-function-in-my-language
