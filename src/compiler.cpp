@@ -2,17 +2,25 @@
 #include "util.hpp"
 #include <exception>
 #include <iostream>
+#include <optional>
 #include <stdexcept>
 #include <string>
 
+#if (LLVM_VERSION_MAJOR < 17) || \
+    (LLVM_VERSION_MAJOR == 17 && LLVM_VERSION_MINOR == 0 && LLVM_VERSION_PATCH < 6)
 #include <llvm/ADT/Optional.h>
+#endif
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/LegacyPassManager.h>
 #include <llvm/IR/Module.h>
 #include <llvm/Support/CodeGen.h>
 #include <llvm/Support/Host.h>
+#if (LLVM_VERSION_MAJOR < 14)
 #include <llvm/Support/TargetRegistry.h>
+#else
+#include <llvm/MC/TargetRegistry.h>
+#endif
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Target/TargetMachine.h>
@@ -45,7 +53,13 @@ llvm::TargetMachine *InitialisationCompiler() {
                           // relocation model
     auto Features = "";   // no additional features
     llvm::TargetOptions opt;
+
+#if (LLVM_VERSION_MAJOR < 17) || \
+    (LLVM_VERSION_MAJOR == 17 && LLVM_VERSION_MINOR == 0 && LLVM_VERSION_PATCH < 6)
     auto RM = llvm::Optional<llvm::Reloc::Model>();
+#else
+    auto RM = std::optional<llvm::Reloc::Model>();
+#endif
 
     auto TargetMachine =
         Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM);

@@ -582,7 +582,12 @@ llvm::Value *IfExprAST::codegen() {
                                     // block, update ThenBB for the PHI.
 
     // push else block to parent function
+#if (LLVM_VERSION_MAJOR < 17) || \
+    (LLVM_VERSION_MAJOR == 17 && LLVM_VERSION_MINOR == 0 && LLVM_VERSION_PATCH < 6)
     parent_func->getBasicBlockList().push_back(else_bb);
+#else
+    parent_func->insert(parent_func->end(), else_bb);
+#endif
     LBuilder->SetInsertPoint(else_bb);
 
     auto else_ir = else_->codegen();
@@ -594,7 +599,13 @@ llvm::Value *IfExprAST::codegen() {
     // codegen of 'Else' could have changed the current block, update ElseBB for
     // the PHI.
     else_bb = LBuilder->GetInsertBlock();
+
+#if (LLVM_VERSION_MAJOR < 17) || \
+    (LLVM_VERSION_MAJOR == 17 && LLVM_VERSION_MINOR == 0 && LLVM_VERSION_PATCH < 6)
     parent_func->getBasicBlockList().push_back(cont_bb);
+#else
+    parent_func->insert(parent_func->end(), cont_bb);
+#endif
     LBuilder->SetInsertPoint(cont_bb);
     llvm::PHINode *phi_node =
         LBuilder->CreatePHI(llvm::Type::getDoubleTy(*LContext), 2, "cont_phi");
