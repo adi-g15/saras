@@ -171,7 +171,7 @@ Ptr<ExprAST> parsePrimaryExpression() {
     } else if (holds_alternative<TOK_KEYWORDS>(CurrentToken)) {
         auto &keyword = std::get<TOK_KEYWORDS>(CurrentToken).str;
 
-        if (keyword == "if" || keyword == "यदि") {
+        if (keyword == "if" || keyword == "यदि" || keyword == "ఉంటే") {
             return parseIfExpr();
         }
     }
@@ -281,22 +281,25 @@ Ptr<ExprAST> parseIfExpr() {
     auto is_tok_if = []() {
         return holds_alternative<TOK_KEYWORDS>(CurrentToken) &&
                (std::get<TOK_KEYWORDS>(CurrentToken).str == "if" ||
-                std::get<TOK_KEYWORDS>(CurrentToken).str == "यदि");
+                std::get<TOK_KEYWORDS>(CurrentToken).str == "यदि" ||
+                std::get<TOK_KEYWORDS>(CurrentToken).str == "ఉంటే");
     };
     auto is_tok_then = []() {
         return holds_alternative<TOK_KEYWORDS>(CurrentToken) &&
                (std::get<TOK_KEYWORDS>(CurrentToken).str == "then" ||
-                std::get<TOK_KEYWORDS>(CurrentToken).str == "तब");
+                std::get<TOK_KEYWORDS>(CurrentToken).str == "तब" ||
+                std::get<TOK_KEYWORDS>(CurrentToken).str == "అప్పుడు");
     };
     auto is_tok_else = []() {
         return holds_alternative<TOK_KEYWORDS>(CurrentToken) &&
                (std::get<TOK_KEYWORDS>(CurrentToken).str == "else" ||
-                std::get<TOK_KEYWORDS>(CurrentToken).str == "अथवा");
+                std::get<TOK_KEYWORDS>(CurrentToken).str == "अथवा" ||
+                std::get<TOK_KEYWORDS>(CurrentToken).str == "లేకపోతే");
     };
 
     if (!is_tok_if()) {
         return LogError(
-            "Expected \"if\" (or equivalent keyword in hindi) expression");
+            "Expected \"if\" (or equivalent keyword in hindi/telugu) expression");
     }
 
     CurrentToken = get_next_token(); // eat 'if' token
