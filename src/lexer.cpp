@@ -34,9 +34,9 @@ Token get_next_token() {
             LastChar = utf8::get_character(*input);
         }
 
-        if (data_str == "fn" || data_str == "प्रकर") {
+        if (data_str == "fn" || data_str == "प्रकर" || data_str == "ప్రక్రియ") {
             return TOK_FN{};
-        } else if (data_str == "extern" || data_str == "बाहरीप्रकर") {
+        } else if (data_str == "extern" || data_str == "बाहरीप्रकर" || data_str == "బాహ్య-ప్రక్రియ") {
             return TOK_EXTERN{};
         } else if (std::find(LANG_KEYWORDS.cbegin(), LANG_KEYWORDS.cend(),
                              data_str) != LANG_KEYWORDS.cend()) {

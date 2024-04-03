@@ -13,6 +13,7 @@ static const std::vector<utf8::string> LANG_KEYWORDS
     = {
         "if", "then", "else", "for", "while", "return",
         "यदि","तब", "अथवा", "लूप", "लघुलूप", "वापसी",
+        "ఉంటే", "అప్పుడు", "లేకపోతే", "లూప్", "అయితే", "తిరిగి"
       };
 // clang-format on
 
