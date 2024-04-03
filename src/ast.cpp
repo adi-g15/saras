@@ -582,7 +582,7 @@ llvm::Value *IfExprAST::codegen() {
                                     // block, update ThenBB for the PHI.
 
     // push else block to parent function
-    parent_func->getBasicBlockList().push_back(else_bb);
+    parent_func->insert(parent_func->end(), else_bb);
     LBuilder->SetInsertPoint(else_bb);
 
     auto else_ir = else_->codegen();
@@ -594,7 +594,7 @@ llvm::Value *IfExprAST::codegen() {
     // codegen of 'Else' could have changed the current block, update ElseBB for
     // the PHI.
     else_bb = LBuilder->GetInsertBlock();
-    parent_func->getBasicBlockList().push_back(cont_bb);
+    parent_func->insert(parent_func->end(), cont_bb);
     LBuilder->SetInsertPoint(cont_bb);
     llvm::PHINode *phi_node =
         LBuilder->CreatePHI(llvm::Type::getDoubleTy(*LContext), 2, "cont_phi");

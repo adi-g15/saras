@@ -2,17 +2,17 @@
 #include "util.hpp"
 #include <exception>
 #include <iostream>
+#include <optional>
 #include <stdexcept>
 #include <string>
 
-#include <llvm/ADT/Optional.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/LegacyPassManager.h>
 #include <llvm/IR/Module.h>
 #include <llvm/Support/CodeGen.h>
 #include <llvm/Support/Host.h>
-#include <llvm/Support/TargetRegistry.h>
+#include <llvm/MC/TargetRegistry.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Target/TargetMachine.h>
@@ -45,7 +45,7 @@ llvm::TargetMachine *InitialisationCompiler() {
                           // relocation model
     auto Features = "";   // no additional features
     llvm::TargetOptions opt;
-    auto RM = llvm::Optional<llvm::Reloc::Model>();
+    auto RM = std::optional<llvm::Reloc::Model>();
 
     auto TargetMachine =
         Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM);
